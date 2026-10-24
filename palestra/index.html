@@ -161,28 +161,45 @@
   const fmtDate = iso => new Date(iso + 'T12:00').toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  // scheda di partenza: Moreno la cambia dal telefono
-  const ex = (name, sets, reps, weight, rest) => ({ id: uid(), name, sets, reps, weight, rest });
-  const DEFAULT = () => ({
-    day: null,
-    days: [
-      { id: uid(), name: 'A · Petto e tricipiti', exercises: [
-        ex('Panca piana bilanciere', 4, 8, 60, 120), ex('Panca inclinata manubri', 3, 10, 22, 90),
-        ex('Croci ai cavi', 3, 12, 15, 60), ex('Push down al cavo', 3, 12, 25, 60) ] },
-      { id: uid(), name: 'B · Schiena e bicipiti', exercises: [
-        ex('Lat machine', 4, 10, 55, 90), ex('Rematore bilanciere', 4, 8, 50, 120),
-        ex('Pulley basso', 3, 12, 45, 60), ex('Curl manubri', 3, 10, 12, 60) ] },
-      { id: uid(), name: 'C · Gambe e spalle', exercises: [
-        ex('Squat', 4, 8, 70, 150), ex('Leg press', 3, 12, 140, 90),
-        ex('Lento avanti manubri', 3, 10, 16, 90), ex('Alzate laterali', 3, 15, 8, 45) ] }
-    ],
-    // log: { date: { exId: { name, sets: [{ reps, weight }] } } }
-    log: {}
-  });
+  // scheda di partenza: full body per rimettersi in forma e dimagrire, 3 volte a settimana.
+  // Moreno la cambia dal telefono. PLAN sale quando cambia la scheda consigliata.
+  const PLAN = 2;
+  const ex = (name, sets, reps, weight, rest, att, unit) => ({ id: uid(), name, sets, reps, weight, rest, ...(att ? { att } : {}), ...(unit ? { unit } : {}) });
+  const NOTE = 'Settimana: lunedì A, mercoledì B, venerdì A; la settimana dopo B, A, B. ' +
+    'Peso giusto = le ultime 2 ripetizioni sono faticose ma pulite. Quando fai tutte le serie a 12, la volta dopo +2,5 kg. ' +
+    'Nei giorni liberi cammina 30-40 minuti.';
+  const PLAN_DAYS = () => [
+    { id: uid(), name: 'A · Full body', note: NOTE, exercises: [
+      ex('Riscaldamento cyclette', 1, 8, 0, 0, 'cyclette', 'min'),
+      ex('Leg press', 3, 12, 0, 90, 'legpress'),
+      ex('Chest press', 3, 12, 0, 90, 'chestpress'),
+      ex('Lat machine', 3, 12, 0, 90, 'lat'),
+      ex('Leg curl', 3, 12, 0, 60, 'legcurl'),
+      ex('Alzate laterali', 2, 15, 0, 45, 'manubri'),
+      ex('Plank', 3, 30, 0, 45, 'tappetino', 'sec'),
+      ex('Tapis roulant in salita', 1, 20, 0, 0, 'tapis', 'min') ] },
+    { id: uid(), name: 'B · Full body', note: NOTE, exercises: [
+      ex('Riscaldamento tapis roulant', 1, 8, 0, 0, 'tapis', 'min'),
+      ex('Goblet squat', 3, 12, 0, 90, 'kettlebell'),
+      ex('Pulley basso', 3, 12, 0, 90, 'pulley'),
+      ex('Panca inclinata manubri', 3, 12, 0, 90, 'inclinata'),
+      ex('Shoulder press', 3, 12, 0, 60, 'shoulder'),
+      ex('Leg extension', 2, 15, 0, 60, 'legext'),
+      ex('Crunch', 3, 15, 0, 45, 'tappetino'),
+      ex('Ellittica', 1, 20, 0, 0, 'ellittica', 'min') ] }
+  ];
+  const DEFAULT = () => ({ planVer: PLAN, day: null, days: PLAN_DAYS(),
+    // log: { date: { exId: { name, unit, sets: [{ reps, weight }] } } }
+    log: {} });
 
   let S;
   try { S = JSON.parse(localStorage.getItem(KEY)) || DEFAULT(); } catch { S = DEFAULT(); }
   if (!S.days || !S.days.length) S = DEFAULT();
+  // scheda consigliata nuova: se non si e' ancora allenato la sostituisce, altrimenti la aggiunge davanti
+  if ((S.planVer || 1) < PLAN) {
+    S.days = Object.keys(S.log || {}).length ? [...PLAN_DAYS(), ...S.days] : PLAN_DAYS();
+    S.log ||= {}; S.planVer = PLAN; S.day = S.days[0].id;
+  }
   if (!S.day || !S.days.some(d => d.id === S.day)) S.day = S.days[0].id;
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
   // chiede al browser di non cancellare i dati quando lo spazio scarseggia
@@ -207,7 +224,7 @@
 
   function renderAllena() {
     const day = curDay(), log = S.log[todayISO()] || {};
-    let h = '';
+    let h = day.note ? `<div class="card"><p class="note" style="margin:0">${esc(day.note)}</p></div>` : '';
     if (!day.exercises.length) h += `<p class="empty">Nessun esercizio in questo giorno.</p>`;
     for (const e of day.exercises) {
       const done = (log[e.id] && log[e.id].sets) || [];
@@ -537,7 +554,7 @@
   function renderAll() { renderDays(); renderAllena(); if (!$('#v-attrezzi').classList.contains('hidden')) renderAttrezzi(); if (!$('#v-storico').classList.contains('hidden')) renderStorico(); if (!$('#v-dati').classList.contains('hidden')) renderDati(); }
 
   $('#today').textContent = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
-  renderAll();
+  save(); renderAll();
   // se resta aperta oltre mezzanotte, il giorno nuovo parte pulito
   let lastDate = todayISO();
   document.addEventListener('visibilitychange', () => { if (!document.hidden && todayISO() !== lastDate) { lastDate = todayISO(); location.reload(); } });
