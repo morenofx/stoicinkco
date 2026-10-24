@@ -99,6 +99,14 @@
   /* attrezzi */
   .thumb{width:58px;height:40px;flex:none;color:var(--cream);background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:3px}
   .thumb svg{width:100%;height:100%;display:block}
+  .thumb.foto{padding:0;overflow:hidden}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .bigfoto{width:100%;max-height:55vh;object-fit:contain;border-radius:10px;background:var(--card2);display:block;margin-bottom:10px}
+  .fprev{width:100%;max-height:200px;object-fit:cover;border-radius:10px;display:block;margin-bottom:8px}
+  .hr{display:flex;align-items:center;gap:6px}
+  #upd{width:40px;height:40px;font-size:1.35rem;color:var(--cream);border:1px solid var(--line);border-radius:10px}
+  #upd.spin{animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
   .exhead{display:flex;gap:10px;align-items:flex-start;flex:1;min-width:0;text-align:left}
   .addto{display:flex;align-items:center;gap:8px;margin-bottom:10px;color:var(--dim);font-size:.9rem}
   .addto select{flex:1;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card2);padding:0 10px}
@@ -123,7 +131,7 @@
 <body>
 
 <header class="top">
-  <h1>Palestra <small id="today"></small></h1>
+  <h1>Palestra <span class="hr"><small id="today"></small><button id="upd" aria-label="Aggiorna l'app" title="Aggiorna l'app">↻</button></span></h1>
   <div class="days" id="days"></div>
 </header>
 
@@ -150,11 +158,14 @@
 
 <dialog id="dlg"></dialog>
 <div class="toast" id="toast"></div>
+<input type="file" id="cam" accept="image/*" class="hidden">
+<datalist id="exnames"></datalist>
 
 <script src="attrezzi.js"></script>
 <script>
 (() => {
   const KEY = 'palestra.v1';
+  const APP_VER = '1.4';
   const $ = s => document.querySelector(s);
   const uid = () => Math.random().toString(36).slice(2, 9);
   const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -240,7 +251,8 @@
       }
       const att = attOf(e);
       h += `<article class="card">
-        <h3><span class="exhead">${att ? `<button class="thumb" data-info="${att}" aria-label="Com'è l'attrezzo">${ATTREZZI.svg(att)}</button>` : ''}
+        <h3><span class="exhead">${e.foto ? `<button class="thumb foto" data-foto="${e.id}" aria-label="Foto del macchinario"><img data-fimg="${e.id}" alt=""></button>`
+            : att ? `<button class="thumb" data-info="${att}" aria-label="Com'è l'attrezzo">${ATTREZZI.svg(att)}</button>` : ''}
           <span>${esc(e.name)}<div class="meta">${e.sets} × ${e.reps} ${u}${e.rest ? ` · recupero ${fmtRest(e.rest)}` : ''}</div></span></span>
           <button class="icon" data-edit="${e.id}" aria-label="Modifica">✎</button></h3>
         <div class="row ${noKg ? 'hidden' : ''}">
@@ -254,11 +266,13 @@
         <div class="last">${esc(ltTxt)}</div>
       </article>`;
     }
-    h += `<button class="btn main" data-catalog>🧰 Aggiungi dal catalogo attrezzi</button>
+    h += `<button class="btn main" data-shoot>📷 Fotografa un macchinario</button>
+          <button class="btn" data-catalog>🧰 Aggiungi dal catalogo attrezzi</button>
           <button class="btn" data-addex>＋ Esercizio scritto a mano</button>
           <button class="btn" data-editday>✎ Rinomina o elimina questo giorno</button>
           <p class="note">Tocca una serie quando l'hai finita: viene salvata con il peso attuale e parte il recupero. Tieni premuto per cambiare le ripetizioni fatte. Tocca una serie fatta per annullarla.</p>`;
     $('#v-allena').innerHTML = h;
+    fillFoto($('#v-allena'));
   }
 
   const fmtRest = s => s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
@@ -407,9 +421,11 @@
       <button class="btn" id="imp">⬆︎ Ripristina da backup</button>
       <input type="file" id="impf" accept="application/json,.json" class="hidden">
       <button class="btn" id="reset" style="color:var(--warn)">Ricomincia da zero</button>
-      <p class="note">Fai un backup ogni tanto: se cancelli i dati di Safari o cambi telefono, con il file li recuperi.</p>`;
-    $('#exp').onclick = () => {
-      const blob = new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' });
+      <p class="note">Fai un backup ogni tanto: se cancelli i dati di Safari o cambi telefono, con il file li recuperi (foto comprese).</p>
+      <p class="note">Versione ${APP_VER}. Per prendere l'ultima versione tocca ↻ in alto: non serve rimettere l'app sulla schermata Home.</p>`;
+    $('#exp').onclick = async () => {
+      let fotos = {}; try { fotos = await FOTO.all(); } catch {}
+      const blob = new Blob([JSON.stringify({ ...S, fotos })], { type: 'application/json' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `palestra-backup-${todayISO()}.json`;
       document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     };
@@ -420,23 +436,113 @@
         const d = JSON.parse(await f.text());
         if (!Array.isArray(d.days) || typeof d.log !== 'object') throw 0;
         if (!confirm('Sostituire i dati attuali con quelli del backup?')) return;
+        const fotos = d.fotos || {}; delete d.fotos;
+        try { await FOTO.clear(); for (const [k, v] of Object.entries(fotos)) await FOTO.put(k, v); } catch {}
+        for (const k in fotoMem) delete fotoMem[k];
         S = d; if (!S.days.some(x => x.id === S.day)) S.day = S.days[0].id; save(); renderAll(); alert('Backup ripristinato.');
       } catch { alert('Questo file non è un backup valido della palestra.'); }
     };
     $('#reset').onclick = () => {
       if (!confirm('Cancellare scheda e storico da questo telefono?')) return;
       if (!confirm('Sicuro? Senza backup non si recupera.')) return;
+      FOTO.clear().catch(() => {}); for (const k in fotoMem) delete fotoMem[k];
       S = DEFAULT(); S.day = S.days[0].id; save(); renderAll();
     };
   }
 
+  /* ---------- FOTO DEI MACCHINARI (restano sul telefono, in IndexedDB) ---------- */
+  const FOTO = (() => {
+    let dbp;
+    const db = () => dbp ||= new Promise((res, rej) => {
+      const r = indexedDB.open('palestra', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('foto');
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    });
+    const run = async (mode, fn) => {
+      const d = await db();
+      return new Promise((res, rej) => {
+        const t = d.transaction('foto', mode), r = fn(t.objectStore('foto'));
+        t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error);
+      });
+    };
+    return {
+      get: id => run('readonly', st => st.get(id)),
+      put: (id, v) => run('readwrite', st => st.put(v, id)),
+      del: id => run('readwrite', st => st.delete(id)),
+      clear: () => run('readwrite', st => st.clear()),
+      all: async () => {
+        const keys = await run('readonly', st => st.getAllKeys()), vals = await run('readonly', st => st.getAll());
+        return Object.fromEntries(keys.map((k, i) => [k, vals[i]]));
+      }
+    };
+  })();
+  const fotoMem = {};
+  const fotoURL = async id => fotoMem[id] ??= await FOTO.get(id).catch(() => null);
+  function fillFoto(root) {
+    root.querySelectorAll('img[data-fimg]').forEach(img => fotoURL(img.dataset.fimg).then(u => { if (u) img.src = u; }));
+  }
+  // foto rimpicciolita (lato lungo 900 px, JPEG) cosi' il telefono ne tiene tante
+  function takePhoto(cb) {
+    const inp = $('#cam');
+    inp.value = '';
+    inp.onchange = () => {
+      const file = inp.files[0]; if (!file) return;
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, 900 / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        cb(c.toDataURL('image/jpeg', 0.75));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); alert('Non riesco a leggere questa foto.'); };
+      img.src = url;
+    };
+    inp.click();
+  }
+  function showFoto(id) {
+    const e = findEx(id);
+    dlg.innerHTML = `<div><img class="bigfoto" id="bigf" alt=""><h2>${esc(e.name)}</h2>
+      <p class="note">${e.sets} × ${e.reps} ${unitOf(e)}${e.rest ? ` · recupero ${fmtRest(e.rest)}` : ''}</p>
+      <div class="acts"><button value="e">✎ Modifica</button><button class="ok" value="x">Chiudi</button></div></div>`;
+    fotoURL(id).then(u => { if (u) dlg.querySelector('#bigf').src = u; });
+    dlg.querySelector('[value="x"]').onclick = () => dlg.close();
+    dlg.querySelector('[value="e"]').onclick = () => { dlg.close(); editExercise(id); };
+    dlg.showModal();
+  }
+
+  /* ---------- AGGIORNA ---------- */
+  // scarica di nuovo l'app senza toccare scheda, storico e foto
+  async function aggiorna() {
+    const b = $('#upd'); b.classList.add('spin');
+    try {
+      const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+      if (reg) await reg.update();
+      const keys = (await caches.keys()).filter(k => k.startsWith('palestra-'));
+      for (const f of ['./', './index.html', './attrezzi.js', './manifest.json']) {
+        const r = await fetch(f, { cache: 'reload' });
+        if (!r.ok) throw 0;
+        for (const k of keys) await (await caches.open(k)).put(f, r.clone());
+      }
+      location.reload();
+    } catch {
+      b.classList.remove('spin');
+      toast('Serve la connessione per aggiornare');
+    }
+  }
+  $('#upd').onclick = aggiorna;
+
   /* ---------- DIALOG ---------- */
   const dlg = $('#dlg');
-  function editExercise(id) {
-    const day = curDay(), e = id ? day.exercises.find(x => x.id === id) : { name: '', sets: 3, reps: 10, weight: 0, rest: 90 };
+  function editExercise(id, startFoto) {
+    const day = curDay(), e = id ? day.exercises.find(x => x.id === id) : { name: '', sets: 3, reps: 12, weight: 0, rest: 90 };
+    let newFoto = startFoto || null;
     dlg.innerHTML = `<form method="dialog">
       <h2>${id ? 'Modifica esercizio' : 'Nuovo esercizio'}</h2>
-      <label>Nome<input name="name" required value="${esc(e.name)}" placeholder="es. Panca piana"></label>
+      <img class="fprev ${newFoto || e.foto ? '' : 'hidden'}" id="fprev" alt="">
+      <button type="button" class="btn" id="fbtn">📷 ${newFoto || e.foto ? 'Cambia foto' : 'Aggiungi foto del macchinario'}</button>
+      <label>Nome<input name="name" required list="exnames" autocomplete="off" value="${esc(e.name)}" placeholder="es. Panca piana"></label>
       <div class="grid2">
         <label>Serie<input name="sets" type="number" inputmode="numeric" min="1" max="20" value="${e.sets}"></label>
         <label>Ripetizioni<input name="reps" type="number" inputmode="numeric" min="1" max="100" value="${e.reps}"></label>
@@ -453,7 +559,10 @@
         <button class="ok" value="ok">Salva</button>
       </div></form>`;
     if (!id) dlg.querySelector('[data-mv]').parentElement.classList.add('hidden');
-    const f = dlg.querySelector('form');
+    const f = dlg.querySelector('form'), prev = dlg.querySelector('#fprev');
+    $('#exnames').innerHTML = ATTREZZI.LIST.flatMap(a => a.ex.map(x => `<option value="${esc(x[0])}">`)).join('');
+    if (newFoto) prev.src = newFoto; else if (e.foto) fotoURL(id).then(u => { if (u) prev.src = u; });
+    dlg.querySelector('#fbtn').onclick = () => takePhoto(url => { newFoto = url; prev.src = url; prev.classList.remove('hidden'); dlg.querySelector('#fbtn').textContent = '📷 Cambia foto'; });
     dlg.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => {
       const i = day.exercises.indexOf(e), j = i + +b.dataset.mv;
       if (j < 0 || j >= day.exercises.length) return;
@@ -461,14 +570,20 @@
     });
     dlg.querySelector('[value="x"]').onclick = () => dlg.close();
     const del = dlg.querySelector('.del');
-    if (del) del.onclick = () => { if (confirm(`Eliminare "${e.name}" dalla scheda? Lo storico resta.`)) { day.exercises = day.exercises.filter(x => x.id !== id); save(); renderAllena(); dlg.close(); } };
+    if (del) del.onclick = () => { if (confirm(`Eliminare "${e.name}" dalla scheda? Lo storico resta.`)) { day.exercises = day.exercises.filter(x => x.id !== id); if (e.foto) FOTO.del(id).catch(() => {}); delete fotoMem[id]; save(); renderAllena(); dlg.close(); } };
     f.onsubmit = ev => {
       ev.preventDefault();
       const v = Object.fromEntries(new FormData(f));
       const clean = { name: v.name.trim() || 'Esercizio', sets: Math.max(1, Math.min(20, +v.sets || 1)), reps: Math.max(1, +v.reps || 1),
         weight: Math.max(0, +String(v.weight).replace(',', '.') || 0), rest: Math.max(0, +v.rest || 0) };
-      if (id) Object.assign(e, clean); else day.exercises.push({ id: uid(), ...clean });
-      save(); renderAllena(); dlg.close();
+      // il disegno segue il nome se e' uno degli esercizi del catalogo
+      const att = ATTREZZI.byExercise(clean.name); if (att) clean.att = att;
+      const item = id ? Object.assign(e, clean) : { id: uid(), ...clean };
+      if (!id) day.exercises.push(item);
+      const done = () => { save(); renderAllena(); dlg.close(); };
+      if (!newFoto) return done();
+      FOTO.put(item.id, newFoto).then(() => { item.foto = true; fotoMem[item.id] = newFoto; done(); })
+        .catch(() => { alert('Non riesco a salvare la foto su questo telefono: l\'esercizio è salvato senza.'); done(); });
     };
     dlg.showModal();
   }
@@ -530,6 +645,8 @@
     if (w) { const e = findEx(w.dataset.ex); e.weight = Math.max(0, Math.round((+e.weight + +w.dataset.w) * 10) / 10); save(); renderAllena(); return; }
     const ed = t.closest('[data-edit]'); if (ed) return editExercise(ed.dataset.edit);
     const inf = t.closest('[data-info]'); if (inf) return showInfo(inf.dataset.info);
+    const fo = t.closest('[data-foto]'); if (fo) return showFoto(fo.dataset.foto);
+    if (t.closest('[data-shoot]')) return takePhoto(url => editExercise(null, url));
     if (t.closest('[data-catalog]')) { target = S.day; return show('attrezzi'); }
     if (t.closest('[data-addex]')) return editExercise(null);
     if (t.closest('[data-editday]')) return editDay(false);
