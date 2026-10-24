@@ -1,7 +1,7 @@
 // Service worker della palestra: tiene la pagina sul telefono per usarla offline.
 // A ogni modifica dei file cambia VER, cosi' il telefono scarica la versione nuova.
-const VER = 'palestra-v1';
-const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
+const VER = 'palestra-v2';
+const FILES = ['./', './index.html', './attrezzi.js', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VER).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
@@ -16,7 +16,7 @@ self.addEventListener('activate', e => {
 });
 
 // pagina: prima la rete (cosi' gli aggiornamenti arrivano), se manca la rete la copia salvata.
-// icone e manifest: prima la copia salvata.
+// catalogo, icone e manifest: prima la copia salvata.
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
@@ -28,5 +28,10 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
-  e.respondWith(caches.match(req).then(hit => hit || fetch(req)));
+  // la copia salvata risponde subito; intanto, se c'e' rete, si aggiorna per la prossima volta
+  e.respondWith(caches.match(req).then(hit => {
+    const net = fetch(req).then(r => { if (r.ok) { const copy = r.clone(); caches.open(VER).then(c => c.put(req, copy)); } return r; });
+    if (hit) { e.waitUntil(net.catch(() => {})); return hit; }
+    return net;
+  }));
 });

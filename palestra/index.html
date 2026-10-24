@@ -96,6 +96,28 @@
   .acts .del{color:var(--warn);border-color:rgba(232,162,92,.4);flex:.7}
   .note{color:var(--dim);font-size:.85rem;margin-top:8px}
   .hidden{display:none!important}
+  /* attrezzi */
+  .thumb{width:58px;height:40px;flex:none;color:var(--cream);background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:3px}
+  .thumb svg{width:100%;height:100%;display:block}
+  .exhead{display:flex;gap:10px;align-items:flex-start;flex:1;min-width:0;text-align:left}
+  .addto{display:flex;align-items:center;gap:8px;margin-bottom:10px;color:var(--dim);font-size:.9rem}
+  .addto select{flex:1;height:44px;border-radius:10px;border:1px solid var(--line);background:var(--card2);padding:0 10px}
+  .cats{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+  .cats::-webkit-scrollbar{display:none}
+  .att .pic{color:var(--cream);background:repeating-linear-gradient(45deg,rgba(245,230,200,.04) 0 1px,transparent 1px 6px),var(--card2);
+    border:1px solid var(--line);border-radius:10px;padding:8px 16px;margin-bottom:10px}
+  .att .pic svg{width:100%;height:auto;max-height:150px;display:block}
+  .att p{font-size:.92rem;margin-top:6px}
+  .att p b{color:var(--dim);font-weight:600}
+  .exl{margin-top:10px;border-top:1px solid var(--line)}
+  .exl div{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .exl div:last-child{border-bottom:0}
+  .exl small{color:var(--dim);display:block}
+  .add{flex:none;min-width:96px;height:40px;border-radius:10px;background:var(--cream);color:var(--bg);font-weight:800;padding:0 12px}
+  .add.in{background:transparent;color:var(--ok);border:1px solid rgba(155,209,122,.4)}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(150px + env(safe-area-inset-bottom));z-index:30;
+    background:var(--card2);border:1px solid var(--line);border-radius:999px;padding:10px 18px;font-size:.9rem;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.on{opacity:1}
 </style>
 </head>
 <body>
@@ -107,6 +129,7 @@
 
 <main class="wrap">
   <section id="v-allena"></section>
+  <section id="v-attrezzi" class="hidden"></section>
   <section id="v-storico" class="hidden"></section>
   <section id="v-dati" class="hidden"></section>
 </main>
@@ -120,12 +143,15 @@
 
 <nav class="tabs">
   <button data-v="allena" class="on"><b>🏋️</b>Allenamento</button>
+  <button data-v="attrezzi"><b>🧰</b>Attrezzi</button>
   <button data-v="storico"><b>📈</b>Storico</button>
   <button data-v="dati"><b>⚙︎</b>Dati</button>
 </nav>
 
 <dialog id="dlg"></dialog>
+<div class="toast" id="toast"></div>
 
+<script src="attrezzi.js"></script>
 <script>
 (() => {
   const KEY = 'palestra.v1';
@@ -186,18 +212,21 @@
     for (const e of day.exercises) {
       const done = (log[e.id] && log[e.id].sets) || [];
       const lt = lastTime(e.id);
-      const ltTxt = lt ? `Ultima volta (${fmtDate(lt.date)}): ${lt.sets.map(s => `${s.weight}×${s.reps}`).join(' · ')}` : 'Prima volta';
+      const u = unitOf(e), noKg = u === 'min';
+      const ltTxt = lt ? `Ultima volta (${fmtDate(lt.date)}): ${lt.sets.map(s => fmtSet(s, u, true)).join(' · ')}` : 'Prima volta';
       let sets = '';
       for (let i = 0; i < Math.max(e.sets, done.length); i++) {
         const s = done[i];
         sets += s
-          ? `<button class="set done" data-set="${i}" data-ex="${e.id}">${s.reps}<small>${s.weight}kg</small></button>`
-          : `<button class="set" data-set="${i}" data-ex="${e.id}">${i + 1}<small>${e.reps} rip</small></button>`;
+          ? `<button class="set done" data-set="${i}" data-ex="${e.id}">${s.reps}<small>${noKg ? 'min' : s.weight + 'kg'}</small></button>`
+          : `<button class="set" data-set="${i}" data-ex="${e.id}">${i + 1}<small>${e.reps} ${u}</small></button>`;
       }
+      const att = attOf(e);
       h += `<article class="card">
-        <h3><span>${esc(e.name)}<div class="meta">${e.sets} × ${e.reps} · recupero ${fmtRest(e.rest)}</div></span>
+        <h3><span class="exhead">${att ? `<button class="thumb" data-info="${att}" aria-label="Com'è l'attrezzo">${ATTREZZI.svg(att)}</button>` : ''}
+          <span>${esc(e.name)}<div class="meta">${e.sets} × ${e.reps} ${u}${e.rest ? ` · recupero ${fmtRest(e.rest)}` : ''}</div></span></span>
           <button class="icon" data-edit="${e.id}" aria-label="Modifica">✎</button></h3>
-        <div class="row">
+        <div class="row ${noKg ? 'hidden' : ''}">
           <div class="wt">
             <button data-w="-2.5" data-ex="${e.id}" aria-label="Meno peso">−</button>
             <input type="number" inputmode="decimal" step="0.5" value="${e.weight}" data-wi="${e.id}" aria-label="Peso">
@@ -208,20 +237,74 @@
         <div class="last">${esc(ltTxt)}</div>
       </article>`;
     }
-    h += `<button class="btn" data-addex>＋ Aggiungi esercizio</button>
+    h += `<button class="btn main" data-catalog>🧰 Aggiungi dal catalogo attrezzi</button>
+          <button class="btn" data-addex>＋ Esercizio scritto a mano</button>
           <button class="btn" data-editday>✎ Rinomina o elimina questo giorno</button>
           <p class="note">Tocca una serie quando l'hai finita: viene salvata con il peso attuale e parte il recupero. Tieni premuto per cambiare le ripetizioni fatte. Tocca una serie fatta per annullarla.</p>`;
     $('#v-allena').innerHTML = h;
   }
 
   const fmtRest = s => s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
+  // unita' delle ripetizioni: 'rip', 'sec' (plank) o 'min' (cardio, senza peso)
+  const unitOf = e => e.unit || 'rip';
+  const fmtSet = (s, u, short) => u === 'min' ? `${s.reps} min`
+    : u === 'sec' ? (+s.weight ? `${s.weight} kg × ${s.reps}s` : `${s.reps}s`)
+    : short ? `${s.weight}×${s.reps}` : `${s.weight} kg × ${s.reps}`;
+  const attOf = e => (e.att && ATTREZZI.byId(e.att)) ? e.att : ATTREZZI.byExercise(e.name);
+
+  /* ---------- ATTREZZI ---------- */
+  const CATS = ['Tutti', 'Petto', 'Schiena', 'Gambe', 'Spalle', 'Braccia', 'Addome', 'Cardio'];
+  let cat = 'Tutti', target = null;
+  function renderAttrezzi() {
+    if (!target || !S.days.some(d => d.id === target)) target = S.day;
+    const day = S.days.find(d => d.id === target);
+    const have = new Set(day.exercises.map(e => e.name.toLowerCase()));
+    let h = `<label class="addto">Aggiungi a
+        <select id="attDay">${S.days.map(d => `<option value="${d.id}" ${d.id === target ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></label>
+      <div class="cats">${CATS.map(c => `<button class="chip ${c === cat ? 'on' : ''}" data-cat="${c}">${c}</button>`).join('')}</div>`;
+    for (const a of ATTREZZI.LIST) {
+      if (cat !== 'Tutti' && !a.cat.includes(cat)) continue;
+      h += `<article class="card att" id="att-${a.id}">
+        <div class="pic">${ATTREZZI.svg(a.id)}</div>
+        <h3>${esc(a.name)}</h3>
+        <p><b>Allena:</b> ${esc(a.allena)}</p>
+        <p><b>Come si usa:</b> ${esc(a.come)}</p>
+        <div class="exl">${a.ex.map(([n, s, r, rest, u = 'rip'], i) => `<div>
+          <span>${esc(n)}<small>${s} × ${r} ${u}${rest ? ` · rec ${fmtRest(rest)}` : ''}</small></span>
+          ${have.has(n.toLowerCase()) ? '<button class="add in" disabled>✓ In scheda</button>'
+            : `<button class="add" data-add="${a.id}" data-i="${i}">＋ Aggiungi</button>`}</div>`).join('')}</div>
+      </article>`;
+    }
+    $('#v-attrezzi').innerHTML = h;
+  }
+  $('#v-attrezzi').addEventListener('click', ev => {
+    const c = ev.target.closest('[data-cat]');
+    if (c) { cat = c.dataset.cat; renderAttrezzi(); return; }
+    const b = ev.target.closest('[data-add]'); if (!b) return;
+    const a = ATTREZZI.byId(b.dataset.add), [name, sets, reps, rest, unit] = a.ex[+b.dataset.i];
+    const day = S.days.find(d => d.id === target);
+    day.exercises.push({ id: uid(), name, sets, reps, weight: 0, rest, att: a.id, ...(unit ? { unit } : {}) });
+    save(); renderAttrezzi(); renderAllena();
+    toast(`${name} aggiunto a ${day.name}`);
+  });
+  $('#v-attrezzi').addEventListener('change', ev => { if (ev.target.id === 'attDay') { target = ev.target.value; renderAttrezzi(); } });
+  let toastT;
+  function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 1800); }
+  function showInfo(id) {
+    const a = ATTREZZI.byId(id);
+    dlg.innerHTML = `<div class="att"><div class="pic">${ATTREZZI.svg(id)}</div><h2>${esc(a.name)}</h2>
+      <p><b>Allena:</b> ${esc(a.allena)}</p><p><b>Come si usa:</b> ${esc(a.come)}</p>
+      <div class="acts"><button class="ok" value="x">Chiudi</button></div></div>`;
+    dlg.querySelector('[value="x"]').onclick = () => dlg.close();
+    dlg.showModal();
+  }
 
   function findEx(id) { for (const d of S.days) { const e = d.exercises.find(x => x.id === id); if (e) return e; } }
 
   function toggleSet(exId, i, repsOverride) {
     const e = findEx(exId), log = todayLog();
     const entry = (log[exId] ||= { name: e.name, sets: [] });
-    entry.name = e.name;
+    entry.name = e.name; entry.unit = unitOf(e);
     if (entry.sets[i] && repsOverride == null) {
       entry.sets.splice(i, 1);
       if (!entry.sets.length) delete log[exId];
@@ -291,7 +374,7 @@
       <p class="note">Peso massimo per seduta · ultimo ${pts.length ? pts[pts.length - 1].w + ' kg' : '-'} · record ${max} kg</p></div>`;
     for (const d of dates) {
       h += `<div class="card sess"><h3>${fmtDate(d)}</h3><ul>` +
-        Object.values(S.log[d]).map(e => `<li><b>${esc(e.name)}</b><br><span>${e.sets.map(s => `${s.weight} kg × ${s.reps}`).join(' · ')}</span></li>`).join('') +
+        Object.values(S.log[d]).map(e => `<li><b>${esc(e.name)}</b><br><span>${e.sets.map(s => fmtSet(s, e.unit || 'rip')).join(' · ')}</span></li>`).join('') +
         `</ul></div>`;
     }
     $('#v-storico').innerHTML = h;
@@ -429,6 +512,8 @@
     const w = t.closest('[data-w]');
     if (w) { const e = findEx(w.dataset.ex); e.weight = Math.max(0, Math.round((+e.weight + +w.dataset.w) * 10) / 10); save(); renderAllena(); return; }
     const ed = t.closest('[data-edit]'); if (ed) return editExercise(ed.dataset.edit);
+    const inf = t.closest('[data-info]'); if (inf) return showInfo(inf.dataset.info);
+    if (t.closest('[data-catalog]')) { target = S.day; return show('attrezzi'); }
     if (t.closest('[data-addex]')) return editExercise(null);
     if (t.closest('[data-editday]')) return editDay(false);
   });
@@ -444,12 +529,12 @@
   document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => show(b.dataset.v));
   function show(v) {
     document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
-    ['allena', 'storico', 'dati'].forEach(x => $('#v-' + x).classList.toggle('hidden', x !== v));
+    ['allena', 'attrezzi', 'storico', 'dati'].forEach(x => $('#v-' + x).classList.toggle('hidden', x !== v));
     $('#days').classList.toggle('hidden', v !== 'allena');
-    if (v === 'storico') renderStorico(); if (v === 'dati') renderDati();
+    if (v === 'attrezzi') renderAttrezzi(); if (v === 'storico') renderStorico(); if (v === 'dati') renderDati();
     scrollTo(0, 0);
   }
-  function renderAll() { renderDays(); renderAllena(); if (!$('#v-storico').classList.contains('hidden')) renderStorico(); if (!$('#v-dati').classList.contains('hidden')) renderDati(); }
+  function renderAll() { renderDays(); renderAllena(); if (!$('#v-attrezzi').classList.contains('hidden')) renderAttrezzi(); if (!$('#v-storico').classList.contains('hidden')) renderStorico(); if (!$('#v-dati').classList.contains('hidden')) renderDati(); }
 
   $('#today').textContent = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
   renderAll();
