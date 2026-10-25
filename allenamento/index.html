@@ -341,7 +341,7 @@
     const done = d.exercises.length && d.exercises.every(e => doneSets(e.id).length >= e.sets);
     const min = Math.round(d.exercises.reduce((t, e) => t + (unitOf(e) === 'min' ? e.reps : e.sets * (1 + e.rest / 60)), 0) / 5) * 5;
     return `<button class="day ${done ? 'fatto' : ''}" data-start="${d.id}">
-      <b>${esc(d.name)}</b><small>${d.exercises.length} esercizi · circa ${min || 5} minuti</small>
+      <b>${esc(d.name)}</b><small>${d.exercises.length} ${d.exercises.length === 1 ? 'esercizio' : 'esercizi'} · circa ${min || 5} minuti</small>
       <div class="strip">${d.exercises.slice(0, 6).map(picOf).join('')}</div>
       <span class="go">${done ? '✓ Fatto oggi · rifallo' : '▶ Inizia'}</span></button>`;
   }
