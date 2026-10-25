@@ -214,11 +214,11 @@
 <input type="file" id="cam" accept="image/*" class="hidden">
 <input type="file" id="impf" accept="application/json,.json" class="hidden">
 
-<script src="attrezzi.js?v=2.6"></script>
+<script src="attrezzi.js?v=2.7"></script>
 <script>
 (() => {
   const KEY = 'palestra.v1';
-  const APP_VER = '2.6';
+  const APP_VER = '2.7';
   const $ = s => document.querySelector(s);
   const uid = () => Math.random().toString(36).slice(2, 9);
   const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -702,11 +702,13 @@
     ['pav-tagliatab', 'Tagliata di Bovino con Patate al Forno', 2, 5.90], ['pav-petto', 'Petto di Pollo Grigliato', 2, 5.90],
     ['pav-tagliatap', 'Tagliata di Pollo ai Carciofi', 2, 5.90], ['pav-seppioline', 'Seppioline con Piselli', 2, 5.90],
     ['pav-insmare', 'Insalata di Mare', 2, 4.90], ['pav-branzino', 'Branzino alla Mediterranea', 1, 6.90],
-    ['pav-filetto', 'Filetto di Pollo alla Griglia', 1, 5.90], ['pav-cavolfiori', 'Cavolfiori al vapore', 2, 3.40],
-    ['pav-fagiolini', 'Fagiolini Lessati', 2, 3.40], ['pav-zucchine', 'Zucchine Grigliate', 2, 3.40],
-    ['pav-spinaci', 'Misto di Spinaci Lessati', 2, 3.40], ['pav-cime', 'Cime di Rapa Lessate', 2, 3.40],
-    ['pav-tris', 'Tris al Vapore', 2, 3.40], ['pav-peperoni', 'Peperoni Grigliati Listarelle', 2, 3.40],
-    ['pav-riso', 'Riso Basmati in Bianco', 2, 3.40]
+    ['pav-filetto', 'Filetto di Pollo alla Griglia', 1, 5.90]
+  ];
+  // per risparmiare: le verdure di Pranzoalvolo costano 3,40 a porzione, surgelate in busta da microonde molto meno
+  const SPESA_VERDURE = [
+    ['v-fagiolini', 'Fagiolini surgelati', '1 busta (4 porzioni)'], ['v-spinaci', 'Spinaci surgelati', '1 busta (4 porzioni)'],
+    ['v-zucchine', 'Zucchine grigliate surgelate', '1 busta (3 porzioni)'], ['v-misto', 'Verdure miste al vapore in busta da microonde', '2 buste'],
+    ['v-riso', 'Riso basmati in busta da microonde', '2 buste']
   ];
   const SPESA_CASA = [
     ['c-yogurt', 'Yogurt greco magro 0% da 170 g', '7 vasetti'], ['c-avena', 'Fiocchi d\'avena', '1 pacco da 500 g (dura 2 settimane)'],
@@ -747,13 +749,14 @@
     const row = (k, nome, qta, extra) => `<label class="chk ${S.spesa[k] ? 'on' : ''}"><input type="checkbox" data-sp="${k}" ${S.spesa[k] ? 'checked' : ''}>
       <span><b>${esc(nome)}</b><small>${esc(qta)}${extra ? ' · ' + extra : ''}</small></span></label>`;
     let h = `<div class="bar"><button class="round" data-go="home" aria-label="Indietro">‹</button><h2>Lista spesa</h2><span style="width:48px"></span></div>
-      <h3 class="sez">1 · Pranzoalvolo.it · pranzi e cene</h3>
-      <p class="hint">Ordina il giovedì: arriva in 2-4 giorni, giusto per il lunedì. Circa <b>${fmtEuro(tot)}</b> a settimana, spedizione gratis sopra 120 €.</p>
+      <h3 class="sez">1 · Pranzoalvolo.it · i secondi di pranzo e cena</h3>
+      <p class="hint">Ordina il giovedì: arriva in 2-4 giorni, giusto per il lunedì. Circa <b>${fmtEuro(tot)}</b> + 8,90 € di spedizione.</p>
       <div class="week">${SPESA_PAV.map(([k, n, q, pr]) => row(k, n, `${q} ${q === 1 ? 'porzione' : 'porzioni'}`, fmtEuro(q * pr))).join('')}</div>
+      <p class="note">Sotto i 120 € la spedizione costa 8,90 €; al primo ordine il codice SPEDZERO la toglie. Dura una settimana: i piatti scadono dopo 5-12 giorni.</p>
       <a class="btn" href="https://pranzoalvolo.it/shop/categorie/linea-benessere/" target="_blank" rel="noopener">Apri Pranzoalvolo.it ↗</a>
-      <h3 class="sez">2 · Spesa online · colazioni e spuntini</h3>
-      <p class="hint">Per una settimana. Puoi ordinarla da casa (per esempio Esselunga a casa o Amazon): così non vai al supermercato e non compri schifezze.</p>
-      <div class="week">${SPESA_CASA.map(([k, n, q]) => row(k, n, q)).join('')}</div>
+      <h3 class="sez">2 · Spesa online · verdure, riso, colazioni</h3>
+      <p class="hint">Per una settimana. Ordinala da casa (per esempio Esselunga a casa o Amazon): così non vai al supermercato e non compri schifezze. Le verdure surgelate si cuociono 5-6 minuti nel microonde: è la verdura del pranzo e della cena.</p>
+      <div class="week">${[...SPESA_VERDURE, ...SPESA_CASA].map(([k, n, q]) => row(k, n, q)).join('')}</div>
       <button class="btn red" id="sprst">Togli tutte le spunte (nuova settimana)</button>
       <p class="note">Prezzi e piatti presi dal sito il 25 ottobre: se un piatto è esaurito, scegline uno simile nella sezione "I piatti GIUSTI".</p>`;
     $('#spesa').innerHTML = h;
