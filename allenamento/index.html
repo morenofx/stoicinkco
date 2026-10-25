@@ -72,6 +72,10 @@
   .pic svg{width:100%;height:100%;max-height:calc(38vh - 20px)}
   .pic img{width:100%;height:100%;max-height:calc(38vh - 20px);object-fit:contain;border-radius:10px}
   .pic .info{position:absolute;right:8px;bottom:8px;width:36px;height:36px;border-radius:50%;background:var(--card2);border:1px solid var(--line);font-weight:800}
+  .pic .swap{position:absolute;left:8px;bottom:8px;height:36px;padding:0 12px;border-radius:18px;background:rgba(11,11,10,.8);border:1px solid var(--line);font-weight:700;font-size:.9rem}
+  .pic .fase{position:absolute;left:8px;top:8px;padding:3px 10px;border-radius:12px;background:rgba(11,11,10,.75);font-size:.8rem;color:var(--dim)}
+  .pic.web{padding:0;overflow:hidden;background:#000}
+  .pic.web img{max-height:38vh;border-radius:0}
   .kind{color:var(--dim);font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;margin-top:12px}
   .exname{font-size:1.65rem;font-weight:800;line-height:1.15;margin-top:2px}
   .how{color:var(--dim);font-size:.95rem;margin-top:6px}
@@ -177,7 +181,7 @@
 <script>
 (() => {
   const KEY = 'palestra.v1';
-  const APP_VER = '2.0';
+  const APP_VER = '2.1';
   const $ = s => document.querySelector(s);
   const uid = () => Math.random().toString(36).slice(2, 9);
   const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -308,13 +312,20 @@
     if ('wakeLock' in navigator) navigator.wakeLock.request('screen').then(w => wake = w).catch(() => {});
     go('play'); renderPlay();
   }
-  function stopPlay() { PL = null; if (wake) { wake.release().catch(() => {}); wake = null; } go('home'); }
+  function stopPlay() { if (PL) clearInterval(PL.anim); PL = null; if (wake) { wake.release().catch(() => {}); wake = null; } go('home'); }
   function renderPlay() {
     const d = dayOf(PL.day), list = d.exercises;
     if (PL.i >= list.length) return renderFine();
     const e = list[PL.i], done = doneSets(e.id), att = attOf(e), A = att && ATTREZZI.byId(att), u = unitOf(e);
     const all = done.length >= e.sets, cardio = u === 'min';
     const tot = list.reduce((t, x) => t + x.sets, 0), fatti = list.reduce((t, x) => t + Math.min(x.sets, doneSets(x.id).length), 0);
+    // cosa mostrare: foto mia, foto vera dell'esercizio, disegno. Si parte dalla foto vera se c'e'.
+    const web = ATTREZZI.fotoEs(e.name);
+    const views = [e.foto && 'mia', web && 'web', att && 'dis'].filter(Boolean);
+    if (!views.includes(PL.view)) PL.view = views.includes('web') ? 'web' : views[0];
+    const view = PL.view;
+    const picHtml = view === 'web' ? `<img id="webf" src="${web[0]}" alt="Foto dell'esercizio"><span class="fase" id="fase">Partenza</span>`
+      : view === 'mia' ? `<img data-fimg="${e.id}" alt="">` : view === 'dis' ? ATTREZZI.svg(att) : picOf(e);
     const kind = cardio ? (PL.i === 0 ? 'Riscaldamento' : 'Cardio') : (A ? A.cat[0] : 'Esercizio');
     let main;
     if (all) main = `<button class="do next" id="avanti">${PL.i === list.length - 1 ? '🏁 Finisci l\'allenamento' : 'Avanti: esercizio dopo →'}</button>`;
@@ -323,7 +334,7 @@
     $('#play').innerHTML = `
       <div class="bar"><button class="round" id="esci" aria-label="Esci">✕</button><div class="prog"><div style="width:${tot ? fatti / tot * 100 : 0}%"></div></div>
         <span class="count">${PL.i + 1} / ${list.length}</span></div>
-      <div class="pic">${picOf(e)}${A ? '<button class="info" id="info" aria-label="Come si usa">i</button>' : ''}</div>
+      <div class="pic ${view === 'web' ? 'web' : ''}">${picHtml}${views.length > 1 ? `<button class="swap" id="swap">${VIEW_LBL[views[(views.indexOf(view) + 1) % views.length]]}</button>` : ''}${A ? '<button class="info" id="info" aria-label="Come si usa">i</button>' : ''}</div>
       <div class="kind">${esc(kind)}</div>
       <div class="exname">${esc(e.name)}</div>
       ${PL.info && A ? `<p class="how">${esc(A.come)}</p>` : ''}
@@ -334,6 +345,13 @@
       ${main}
       <div class="nav"><button id="prev" ${PL.i === 0 ? 'disabled' : ''}>‹ Indietro</button><button id="next">${PL.i === list.length - 1 ? 'Fine ›' : 'Salta ›'}</button></div>`;
     fillFoto($('#play'));
+    // la foto vera alterna partenza e arrivo, come un piccolo video
+    clearInterval(PL.anim);
+    if (view === 'web') {
+      let k = 0;
+      PL.anim = setInterval(() => { const im = $('#webf'), fa = $('#fase'); if (!im) return clearInterval(PL.anim); k = 1 - k; im.src = web[k]; fa.textContent = k ? 'Arrivo' : 'Partenza'; }, 1400);
+    }
+    if ($('#swap')) $('#swap').onclick = () => { PL.view = views[(views.indexOf(view) + 1) % views.length]; renderPlay(); };
     $('#esci').onclick = () => { if (confirm('Uscire dall\'allenamento? Le serie fatte restano salvate.')) stopPlay(); };
     $('#prev').onclick = () => move(-1);
     $('#next').onclick = () => move(1);
@@ -346,7 +364,8 @@
       if (k < done.length) { if (confirm(`Togliere la serie ${k + 1}?`)) { unlogSet(e, k); renderPlay(); } }
     });
   }
-  function move(step) { PL.i = Math.max(0, PL.i + step); PL.info = false; renderPlay(); scrollTo(0, 0); }
+  function move(step) { PL.i = Math.max(0, PL.i + step); PL.info = false; PL.view = null; renderPlay(); scrollTo(0, 0); }
+  const VIEW_LBL = { web: '📷 Foto', dis: '✏️ Disegno', mia: '📱 La mia foto' };
   function logSet(e) {
     const log = (S.log[todayISO()] ||= {}), entry = (log[e.id] ||= { name: e.name, sets: [] });
     entry.name = e.name; entry.unit = unitOf(e);
@@ -574,6 +593,7 @@
       <button class="btn main" id="exp">⬇︎ Salva un backup</button>
       <button class="btn" id="imp">⬆︎ Ripristina un backup</button>
       <button class="btn red" id="reset">Ricomincia da zero</button>
+      <p class="note">Foto degli esercizi: free-exercise-db, pubblico dominio.</p>
       <p class="note">Versione ${APP_VER}. Per l'ultima versione tocca ↻ nella prima pagina: non serve rimettere l'app sulla schermata Home.</p>`;
     $('#exp').onclick = async () => {
       let fotos = {}; try { fotos = await FOTO.all(); } catch {}
@@ -634,7 +654,14 @@
   save(); go('home');
   let lastDate = todayISO();
   document.addEventListener('visibilitychange', () => { if (!document.hidden && todayISO() !== lastDate && !PL) { lastDate = todayISO(); go('home'); } });
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
+    navigator.serviceWorker.ready.then(() => {
+      if (!navigator.onLine) return;
+      const urls = new Set(S.days.flatMap(d => d.exercises.flatMap(e => ATTREZZI.fotoEs(e.name) || [])));
+      urls.forEach(u => fetch(u).catch(() => {}));
+    });
+  }
 })();
 </script>
 </body>
