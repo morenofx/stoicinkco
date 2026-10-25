@@ -68,6 +68,22 @@
   .wd i{font-style:normal;color:var(--ok);font-weight:800}
   .wd{width:100%;text-align:left}
   .wd em{font-style:normal;font-size:1.3rem;opacity:.6}
+  .meal{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin-bottom:6px}
+  .meal b{display:block;font-size:1.1rem;margin-bottom:6px}
+  .meal span{display:block;font-size:.95rem;margin-top:4px}
+  .meal i{font-style:normal;color:var(--dim);display:inline-block;width:56px}
+  .meal em{display:block;font-style:normal;color:var(--dim);font-size:.9rem;margin-top:8px}
+  .mm{display:flex;gap:12px;padding:12px 14px;border-top:1px solid var(--line);line-height:1.35}
+  .mm:first-child{border-top:0}
+  .mm .ic{font-size:1.4rem}
+  .mm small{color:var(--dim)}
+  .chk{display:flex;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line);cursor:pointer}
+  .chk:first-child{border-top:0}
+  .chk input{width:26px;height:26px;flex:none;accent-color:#9bd17a}
+  .chk b{display:block;font-weight:600}
+  .chk small{color:var(--dim)}
+  .chk.on b{text-decoration:line-through;opacity:.55}
+  a.btn{text-decoration:none;color:inherit}
   .prevrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
   .prevrow .th{width:64px;height:46px;flex:none;background:var(--card2);border-radius:8px;overflow:hidden;display:grid;place-items:center}
   .prevrow .th svg,.prevrow .th img{width:100%;height:100%;object-fit:cover}
@@ -189,6 +205,8 @@
 <section id="exedit" class="scr hidden"></section>
 <section id="storico" class="scr hidden"></section>
 <section id="altro" class="scr hidden"></section>
+<section id="mangia" class="scr hidden"></section>
+<section id="spesa" class="scr hidden"></section>
 
 <div id="rest" class="hidden"></div>
 <div id="sheet" class="sheet hidden"></div>
@@ -196,11 +214,11 @@
 <input type="file" id="cam" accept="image/*" class="hidden">
 <input type="file" id="impf" accept="application/json,.json" class="hidden">
 
-<script src="attrezzi.js?v=2.5"></script>
+<script src="attrezzi.js?v=2.6"></script>
 <script>
 (() => {
   const KEY = 'palestra.v1';
-  const APP_VER = '2.5';
+  const APP_VER = '2.6';
   const $ = s => document.querySelector(s);
   const uid = () => Math.random().toString(36).slice(2, 9);
   const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -333,10 +351,10 @@
   }
 
   /* ---------- SCHERMATE ---------- */
-  const SCREENS = ['home', 'play', 'edit', 'pick', 'exedit', 'storico', 'altro'];
+  const SCREENS = ['home', 'play', 'edit', 'pick', 'exedit', 'storico', 'altro', 'mangia', 'spesa'];
   function go(name) {
     SCREENS.forEach(s => $('#' + s).classList.toggle('hidden', s !== name));
-    ({ home: renderHome, edit: renderEdit, pick: renderPick, storico: renderStorico, altro: renderAltro })[name]?.();
+    ({ home: renderHome, edit: renderEdit, pick: renderPick, storico: renderStorico, altro: renderAltro, mangia: renderMangia, spesa: renderSpesa })[name]?.();
     scrollTo(0, 0);
   }
   let toastT;
@@ -363,6 +381,7 @@
         h += `<div class="riposo"><b>🚶 Oggi camminata tranquilla</b><span>Niente pesi: 30 minuti a passo leggero, per non perdere il ritmo. Devi riuscire a parlare senza fiatone.${dom ? ` Domani: <b>${esc(dom.name)}</b>.` : ''}</span></div>`;
       }
       if (dOggi) h += dayCard(dOggi);
+      h += mealCard(t);
       h += `<h3 class="sez">I prossimi giorni</h3><div class="week">`;
       for (let i = 0; i < 7; i++) {
         const iso = isoOf(dateOf(t).getTime() + i * DAY_MS), d = dayForRole(roleOn(iso));
@@ -373,9 +392,10 @@
       h += `</div><h3 class="sez">Oppure scegli tu</h3>`;
       for (const d of S.days) if (d !== dOggi) h += dayCard(d);
     } else {
-      h += `<p class="hint">Scegli l'allenamento di oggi e tocca <b>Inizia</b>.</p>` + S.days.map(dayCard).join('');
+      h += `<p class="hint">Scegli l'allenamento di oggi e tocca <b>Inizia</b>.</p>` + S.days.map(dayCard).join('') + mealCard(t);
     }
-    h += `<button class="btn" data-go="edit">✎ Crea o cambia la mia scheda</button>
+    h += `<div class="row2"><button class="btn" data-go="mangia">🍽 Menu settimana</button><button class="btn" data-go="spesa">🛒 Lista spesa</button></div>
+      <button class="btn" data-go="edit">✎ Crea o cambia la mia scheda</button>
       <div class="row2"><button class="btn" data-go="storico">📈 Storico</button><button class="btn" data-go="altro">💾 Backup</button></div>`;
     $('#home').innerHTML = h;
     fillFoto($('#home'));
@@ -661,6 +681,84 @@
       }
       save(); toast('Salvato'); go('edit');
     };
+  }
+
+  /* ---------- COSA MANGIO ---------- */
+  // Menu fatto sui piatti leggeri di pranzoalvolo.it (disponibili il 25 ott 2026): ogni piatto venduto a coppie
+  // copre due pasti della settimana, cosi' non avanza niente. Calorie dalle schede del sito.
+  const COLAZIONE = 'Yogurt greco magro + 4-5 cucchiai di fiocchi d\'avena + 1 frutto + 10 mandorle';
+  const MENU = [  // 0 = lunedi'
+    { p: ['Paella di pesce e pollo', 'Cavolfiori al vapore'], pk: 458, c: ['Filetto di pollo alla griglia', 'Fagiolini lessati', 'Riso basmati'], ck: 531 },
+    { p: ['Arrosto di tacchino con patate', 'Zucchine grigliate'], pk: 422, c: ['Branzino alla mediterranea', 'Spinaci lessati'], ck: 358 },
+    { p: ['Tagliata di manzo con patate', 'Cime di rapa'], pk: 518, c: ['Petto di pollo grigliato', 'Tris al vapore'], ck: 541 },
+    { p: ['Paella di pesce e pollo', 'Fagiolini lessati'], pk: 464, c: ['Tagliata di pollo ai carciofi', 'Cavolfiori al vapore'], ck: 335 },
+    { p: ['Arrosto di tacchino con patate', 'Peperoni grigliati'], pk: 422, c: ['Seppioline con piselli', 'Insalata di mare', 'Zucchine grigliate'], ck: 438 },
+    { p: ['Tagliata di manzo con patate', 'Spinaci lessati'], pk: 546, c: ['Tagliata di pollo ai carciofi', 'Tris al vapore'], ck: 392 },
+    { p: ['Petto di pollo grigliato', 'Riso basmati', 'Cime di rapa'], pk: 735, c: ['Seppioline con piselli', 'Insalata di mare', 'Peperoni grigliati'], ck: 438 }
+  ];
+  // [chiave, nome sul sito, quanti, prezzo]
+  const SPESA_PAV = [
+    ['pav-paella', 'Paella di Pesce e Pollo', 2, 4.90], ['pav-arrosto', 'Arrosto di Tacchino', 2, 5.90],
+    ['pav-tagliatab', 'Tagliata di Bovino con Patate al Forno', 2, 5.90], ['pav-petto', 'Petto di Pollo Grigliato', 2, 5.90],
+    ['pav-tagliatap', 'Tagliata di Pollo ai Carciofi', 2, 5.90], ['pav-seppioline', 'Seppioline con Piselli', 2, 5.90],
+    ['pav-insmare', 'Insalata di Mare', 2, 4.90], ['pav-branzino', 'Branzino alla Mediterranea', 1, 6.90],
+    ['pav-filetto', 'Filetto di Pollo alla Griglia', 1, 5.90], ['pav-cavolfiori', 'Cavolfiori al vapore', 2, 3.40],
+    ['pav-fagiolini', 'Fagiolini Lessati', 2, 3.40], ['pav-zucchine', 'Zucchine Grigliate', 2, 3.40],
+    ['pav-spinaci', 'Misto di Spinaci Lessati', 2, 3.40], ['pav-cime', 'Cime di Rapa Lessate', 2, 3.40],
+    ['pav-tris', 'Tris al Vapore', 2, 3.40], ['pav-peperoni', 'Peperoni Grigliati Listarelle', 2, 3.40],
+    ['pav-riso', 'Riso Basmati in Bianco', 2, 3.40]
+  ];
+  const SPESA_CASA = [
+    ['c-yogurt', 'Yogurt greco magro 0% da 170 g', '7 vasetti'], ['c-avena', 'Fiocchi d\'avena', '1 pacco da 500 g (dura 2 settimane)'],
+    ['c-mandorle', 'Mandorle al naturale, non salate', '1 busta da 250 g'], ['c-mele', 'Mele', '7'], ['c-banane', 'Banane', '7'],
+    ['c-arance', 'Arance o kiwi', '7'], ['c-acqua', 'Acqua', '2 litri al giorno']
+  ];
+  const fmtEuro = n => n.toFixed(2).replace('.', ',') + ' €';
+  const MOMENTI = d => [
+    ['☀️', 'Colazione', 'dopo la palestra', COLAZIONE],
+    ['🍎', 'Metà mattina', '', '1 frutto'],
+    ['🍽', 'Pranzo', `circa ${d.pk} kcal`, d.p.join(' + ')],
+    ['🥜', 'Pomeriggio', '', '1 frutto + 15 mandorle'],
+    ['🌙', 'Cena', `circa ${d.ck} kcal`, d.c.join(' + ')]
+  ];
+  function mealCard(iso) {
+    const d = MENU[dow(iso)];
+    return `<button class="meal" data-go="mangia"><b>🍽 Oggi mangi</b>
+      <span><i>Pranzo</i> ${esc(d.p.join(' + '))}</span><span><i>Cena</i> ${esc(d.c.join(' + '))}</span><em>Tutta la giornata ›</em></button>`;
+  }
+  let mDay = null;
+  function renderMangia() {
+    const t = todayISO();
+    if (mDay == null) mDay = dow(t);
+    const d = MENU[mDay];
+    let h = `<div class="bar"><button class="round" data-go="home" aria-label="Indietro">‹</button><h2>Cosa mangio</h2><span style="width:48px"></span></div>
+      <div class="pills">${GIORNI.map((g, i) => `<button class="pill ${i === mDay ? 'on' : ''}" data-md="${i}">${i === dow(t) ? 'Oggi' : g.slice(0, 3)}</button>`).join('')}</div>
+      <div class="week">`;
+    for (const [ic, nome, nota, cosa] of MOMENTI(d)) h += `<div class="mm"><span class="ic">${ic}</span><span><b>${nome}</b>${nota ? ` <small>${nota}</small>` : ''}<br>${esc(cosa)}</span></div>`;
+    h += `</div>
+      <p class="note">Piatti pronti: 2 minuti di microonde. La verdura in più è libera. Acqua: 2 litri al giorno. Dolci e alcol solo ogni tanto.</p>
+      <button class="btn main" data-go="spesa">🛒 Lista della spesa</button>`;
+    $('#mangia').innerHTML = h;
+    $('#mangia').querySelectorAll('[data-md]').forEach(b => b.onclick = () => { mDay = +b.dataset.md; renderMangia(); });
+  }
+  function renderSpesa() {
+    S.spesa ||= {};
+    const tot = SPESA_PAV.reduce((t, x) => t + x[2] * x[3], 0);
+    const row = (k, nome, qta, extra) => `<label class="chk ${S.spesa[k] ? 'on' : ''}"><input type="checkbox" data-sp="${k}" ${S.spesa[k] ? 'checked' : ''}>
+      <span><b>${esc(nome)}</b><small>${esc(qta)}${extra ? ' · ' + extra : ''}</small></span></label>`;
+    let h = `<div class="bar"><button class="round" data-go="home" aria-label="Indietro">‹</button><h2>Lista spesa</h2><span style="width:48px"></span></div>
+      <h3 class="sez">1 · Pranzoalvolo.it · pranzi e cene</h3>
+      <p class="hint">Ordina il giovedì: arriva in 2-4 giorni, giusto per il lunedì. Circa <b>${fmtEuro(tot)}</b> a settimana, spedizione gratis sopra 120 €.</p>
+      <div class="week">${SPESA_PAV.map(([k, n, q, pr]) => row(k, n, `${q} ${q === 1 ? 'porzione' : 'porzioni'}`, fmtEuro(q * pr))).join('')}</div>
+      <a class="btn" href="https://pranzoalvolo.it/shop/categorie/linea-benessere/" target="_blank" rel="noopener">Apri Pranzoalvolo.it ↗</a>
+      <h3 class="sez">2 · Spesa online · colazioni e spuntini</h3>
+      <p class="hint">Per una settimana. Puoi ordinarla da casa (per esempio Esselunga a casa o Amazon): così non vai al supermercato e non compri schifezze.</p>
+      <div class="week">${SPESA_CASA.map(([k, n, q]) => row(k, n, q)).join('')}</div>
+      <button class="btn red" id="sprst">Togli tutte le spunte (nuova settimana)</button>
+      <p class="note">Prezzi e piatti presi dal sito il 25 ottobre: se un piatto è esaurito, scegline uno simile nella sezione "I piatti GIUSTI".</p>`;
+    $('#spesa').innerHTML = h;
+    $('#spesa').querySelectorAll('[data-sp]').forEach(c => c.onchange = () => { S.spesa[c.dataset.sp] = c.checked; c.closest('.chk').classList.toggle('on', c.checked); save(); });
+    $('#sprst').onclick = () => { if (confirm('Togliere tutte le spunte?')) { S.spesa = {}; save(); renderSpesa(); } };
   }
 
   /* ---------- STORICO ---------- */
