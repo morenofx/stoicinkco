@@ -55,6 +55,18 @@
   .strip{display:flex;gap:6px;margin:12px 0;overflow:hidden}
   .strip svg,.strip img{width:64px;height:46px;flex:none;background:var(--card2);border-radius:8px;object-fit:cover}
   .go{display:block;text-align:center;background:var(--cream);color:var(--bg);font-weight:800;font-size:1.15rem;border-radius:12px;padding:14px}
+  .oggi{font-size:1.15rem;font-weight:700;margin-bottom:10px}
+  .riposo{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:14px}
+  .riposo b{display:block;font-size:1.35rem;margin-bottom:4px}
+  .riposo span{color:var(--dim)} .riposo span b{display:inline;font-size:1rem;color:var(--cream)}
+  .sez{font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:20px 0 8px}
+  .week{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  .wd{display:flex;align-items:center;gap:10px;padding:11px 14px;border-top:1px solid var(--line)}
+  .wd:first-child{border-top:0}
+  .wd span{width:118px;color:var(--dim)} .wd span small{opacity:.7}
+  .wd b{flex:1;font-weight:600}
+  .wd i{font-style:normal;color:var(--ok);font-weight:800}
+  .wd.oggi{background:var(--cream);color:var(--bg)} .wd.oggi span{color:rgba(11,11,10,.7);font-weight:700}
   .day.fatto .go{background:transparent;color:var(--ok);border:1px solid rgba(155,209,122,.4)}
   .btn{display:block;width:100%;padding:16px;border-radius:14px;border:1px solid var(--line);text-align:center;font-size:1.05rem;margin-top:10px}
   .btn.main{background:var(--cream);color:var(--bg);border:0;font-weight:800}
@@ -66,6 +78,7 @@
   #play{display:flex;flex-direction:column;min-height:100dvh;padding:calc(env(safe-area-inset-top) + 10px) 16px calc(env(safe-area-inset-bottom) + 12px);max-width:560px;margin:0 auto}
   .prog{height:6px;background:var(--card2);border-radius:3px;overflow:hidden;flex:1}
   .prog div{height:100%;background:var(--cream);transition:width .3s}
+  .clock{color:var(--dim);font-size:.9rem;margin:-8px 0 10px}
   .count{font-weight:700;color:var(--dim);min-width:52px;text-align:right}
   .pic{background:repeating-linear-gradient(45deg,rgba(245,230,200,.035) 0 1px,transparent 1px 7px),var(--card);border:1px solid var(--line);
     border-radius:18px;padding:10px;display:grid;place-items:center;flex:1 1 auto;min-height:170px;max-height:38vh;position:relative}
@@ -177,11 +190,11 @@
 <input type="file" id="cam" accept="image/*" class="hidden">
 <input type="file" id="impf" accept="application/json,.json" class="hidden">
 
-<script src="attrezzi.js?v=2.2"></script>
+<script src="attrezzi.js?v=2.4"></script>
 <script>
 (() => {
   const KEY = 'palestra.v1';
-  const APP_VER = '2.2';
+  const APP_VER = '2.4';
   const $ = s => document.querySelector(s);
   const uid = () => Math.random().toString(36).slice(2, 9);
   const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -190,11 +203,17 @@
   const fmtRest = s => s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s} sec`;
 
   /* ---------- SCHEDA DI PARTENZA ---------- */
-  // full body per rimettersi in forma e dimagrire, 3 volte a settimana. PLAN sale quando cambia la scheda consigliata.
-  const PLAN = 2;
+  // full body per rimettersi in forma e dimagrire: pesi 3 volte a settimana (A e B alternati), cardio nei giorni in mezzo.
+  // role dice che posto ha il giorno nella settimana (A, B, C = solo cardio, D = domenica: camminata tranquilla). PLAN sale quando cambia la scheda consigliata.
+  const PLAN = 4;
   const ex = (name, sets, reps, weight, rest, att, unit) => ({ id: uid(), name, sets, reps, weight, rest, ...(att ? { att } : {}), ...(unit ? { unit } : {}) });
+  const CARDIO_DAY = () => ({ id: uid(), name: 'Solo cardio', role: 'C', exercises: [
+    ex('Tapis roulant in salita', 1, 20, 0, 0, 'tapis', 'min'),
+    ex('Cyclette', 1, 15, 0, 0, 'cyclette', 'min') ] });
+  const EASY_DAY = () => ({ id: uid(), name: 'Camminata tranquilla', role: 'D', exercises: [
+    ex('Camminata tranquilla', 1, 30, 0, 0, 'tapis', 'min') ] });
   const PLAN_DAYS = () => [
-    { id: uid(), name: 'Allenamento A', exercises: [
+    { id: uid(), name: 'Allenamento A', role: 'A', exercises: [
       ex('Riscaldamento cyclette', 1, 8, 0, 0, 'cyclette', 'min'),
       ex('Leg press', 3, 12, 0, 90, 'legpress'),
       ex('Chest press', 3, 12, 0, 90, 'chestpress'),
@@ -202,8 +221,8 @@
       ex('Leg curl', 3, 12, 0, 60, 'legcurl'),
       ex('Alzate laterali', 2, 15, 0, 45, 'manubri'),
       ex('Plank', 3, 30, 0, 45, 'tappetino', 'sec'),
-      ex('Tapis roulant in salita', 1, 20, 0, 0, 'tapis', 'min') ] },
-    { id: uid(), name: 'Allenamento B', exercises: [
+      ex('Tapis roulant in salita', 1, 15, 0, 0, 'tapis', 'min') ] },
+    { id: uid(), name: 'Allenamento B', role: 'B', exercises: [
       ex('Riscaldamento tapis roulant', 1, 8, 0, 0, 'tapis', 'min'),
       ex('Goblet squat', 3, 12, 0, 90, 'kettlebell'),
       ex('Pulley basso', 3, 12, 0, 90, 'pulley'),
@@ -211,7 +230,9 @@
       ex('Shoulder press', 3, 12, 0, 60, 'shoulder'),
       ex('Leg extension', 2, 15, 0, 60, 'legext'),
       ex('Crunch', 3, 15, 0, 45, 'tappetino'),
-      ex('Ellittica', 1, 20, 0, 0, 'ellittica', 'min') ] }
+      ex('Ellittica', 1, 15, 0, 0, 'ellittica', 'min') ] },
+    CARDIO_DAY(),
+    EASY_DAY()
   ];
   const DEFAULT = () => ({ planVer: PLAN, days: PLAN_DAYS(), log: {} });
 
@@ -219,9 +240,41 @@
   try { S = JSON.parse(localStorage.getItem(KEY)) || DEFAULT(); } catch { S = DEFAULT(); }
   if (!S.days || !S.days.length) S = DEFAULT();
   S.log ||= {};
-  if ((S.planVer || 1) < PLAN) { S.days = Object.keys(S.log).length ? [...PLAN_DAYS(), ...S.days] : PLAN_DAYS(); S.planVer = PLAN; }
+  if ((S.planVer || 1) < 2) { S.days = Object.keys(S.log).length ? [...PLAN_DAYS(), ...S.days] : PLAN_DAYS(); S.planVer = PLAN; }
   // i nomi vecchi "A · Full body" diventano "Allenamento A"
   for (const d of S.days) { const m = /^([A-Z]) · Full body$/.exec(d.name); if (m) d.name = 'Allenamento ' + m[1]; delete d.note; }
+  // dalla 3: i giorni A e B prendono il loro posto nella settimana e arriva "Solo cardio" (scheda e pesi restano)
+  if (S.planVer < 3) {
+    for (const d of S.days) { const m = /^Allenamento ([AB])$/.exec(d.name); if (m && !S.days.some(x => x.role === m[1])) d.role = m[1]; }
+    if (!S.days.some(d => d.role === 'C')) S.days.push(CARDIO_DAY());
+    S.planVer = 3;
+  }
+  // dalla 4: la domenica camminata tranquilla per non perdere il ritmo; A e B stanno in un'ora (va alle 6 per un'oretta):
+  // il cardio finale passa da 20 a 15 minuti se non l'ha gia' cambiato lui
+  if (S.planVer < 4) {
+    if (!S.days.some(d => d.role === 'D')) S.days.push(EASY_DAY());
+    for (const d of S.days) if (d.role === 'A' || d.role === 'B') {
+      const last = d.exercises[d.exercises.length - 1];
+      if (last && last.unit === 'min' && last.reps === 20) last.reps = 15;
+    }
+    S.planVer = 4;
+  }
+
+  /* ---------- SETTIMANA ---------- */
+  // lun A, mer B, ven A; la settimana dopo B, A, B. Mar, gio, sab solo cardio; domenica camminata tranquilla.
+  const DAY_MS = 864e5;
+  const isoOf = d => { const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); };
+  const dateOf = iso => new Date(iso + 'T12:00');
+  const dow = iso => (dateOf(iso).getDay() + 6) % 7;  // 0 = lunedi'
+  const mondayOf = iso => isoOf(dateOf(iso).getTime() - dow(iso) * DAY_MS);
+  // la prima settimana parte dal lunedi' di questa settimana (di domenica: da domani)
+  if (!S.weekStart) { const t = todayISO(); S.weekStart = dow(t) === 6 ? isoOf(dateOf(t).getTime() + DAY_MS) : mondayOf(t); }
+  function roleOn(iso) {
+    const w = Math.round((dateOf(mondayOf(iso)) - dateOf(S.weekStart)) / (7 * DAY_MS)), odd = ((w % 2) + 2) % 2 === 1;
+    return [odd ? 'B' : 'A', 'C', odd ? 'A' : 'B', 'C', odd ? 'B' : 'A', 'C', 'D'][dow(iso)];
+  }
+  const dayForRole = r => r && S.days.find(d => d.role === r);
+  const doneOn = (iso, d) => !!S.log[iso] && d.exercises.some(e => S.log[iso][e.id]);
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
@@ -284,16 +337,36 @@
   function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 1800); }
 
   /* ---------- HOME ---------- */
+  function dayCard(d) {
+    const done = d.exercises.length && d.exercises.every(e => doneSets(e.id).length >= e.sets);
+    const min = Math.round(d.exercises.reduce((t, e) => t + (unitOf(e) === 'min' ? e.reps : e.sets * (1 + e.rest / 60)), 0) / 5) * 5;
+    return `<button class="day ${done ? 'fatto' : ''}" data-start="${d.id}">
+      <b>${esc(d.name)}</b><small>${d.exercises.length} esercizi · circa ${min || 5} minuti</small>
+      <div class="strip">${d.exercises.slice(0, 6).map(picOf).join('')}</div>
+      <span class="go">${done ? '✓ Fatto oggi · rifallo' : '▶ Inizia'}</span></button>`;
+  }
+  const GIORNI = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
   function renderHome() {
-    let h = `<div class="bar"><h1>Allenamento</h1><button class="round" id="upd" aria-label="Aggiorna l'app">↻</button></div>
-      <p class="hint">Scegli l'allenamento di oggi e tocca <b>Inizia</b>.</p>`;
-    for (const d of S.days) {
-      const done = d.exercises.length && d.exercises.every(e => doneSets(e.id).length >= e.sets);
-      const min = Math.round(d.exercises.reduce((t, e) => t + (unitOf(e) === 'min' ? e.reps : e.sets * (1 + e.rest / 60)), 0) / 5) * 5;
-      h += `<button class="day ${done ? 'fatto' : ''}" data-start="${d.id}">
-        <b>${esc(d.name)}</b><small>${d.exercises.length} esercizi · circa ${min || 5} minuti</small>
-        <div class="strip">${d.exercises.slice(0, 6).map(picOf).join('')}</div>
-        <span class="go">${done ? '✓ Fatto oggi · rifallo' : '▶ Inizia'}</span></button>`;
+    const t = todayISO(), rOggi = roleOn(t), dOggi = dayForRole(rOggi);
+    const hasPlan = ['A', 'B', 'C'].every(r => dayForRole(r));
+    let h = `<div class="bar"><h1>Allenamento</h1><button class="round" id="upd" aria-label="Aggiorna l'app">↻</button></div>`;
+    if (hasPlan) {
+      h += `<p class="oggi">Oggi, ${GIORNI[dow(t)].toLowerCase()} ${dateOf(t).getDate()} ${dateOf(t).toLocaleDateString('it-IT', { month: 'long' })}</p>`;
+      if (rOggi === 'D') {
+        const dom = dayForRole(roleOn(isoOf(dateOf(t).getTime() + DAY_MS)));
+        h += `<div class="riposo"><b>🚶 Oggi camminata tranquilla</b><span>Niente pesi: 30 minuti a passo leggero, per non perdere il ritmo. Devi riuscire a parlare senza fiatone.${dom ? ` Domani: <b>${esc(dom.name)}</b>.` : ''}</span></div>`;
+      }
+      if (dOggi) h += dayCard(dOggi);
+      h += `<h3 class="sez">I prossimi giorni</h3><div class="week">`;
+      for (let i = 0; i < 7; i++) {
+        const iso = isoOf(dateOf(t).getTime() + i * DAY_MS), d = dayForRole(roleOn(iso));
+        h += `<div class="wd ${i === 0 ? 'oggi' : ''}"><span>${i === 0 ? 'Oggi' : i === 1 ? 'Domani' : GIORNI[dow(iso)]} <small>${dateOf(iso).getDate()}</small></span>
+          <b>${d ? esc(d.name) : 'Riposo'}</b>${d && doneOn(iso, d) ? '<i>✓</i>' : ''}</div>`;
+      }
+      h += `</div><h3 class="sez">Oppure scegli tu</h3>`;
+      for (const d of S.days) if (d !== dOggi) h += dayCard(d);
+    } else {
+      h += `<p class="hint">Scegli l'allenamento di oggi e tocca <b>Inizia</b>.</p>` + S.days.map(dayCard).join('');
     }
     h += `<button class="btn" data-go="edit">✎ Crea o cambia la mia scheda</button>
       <div class="row2"><button class="btn" data-go="storico">📈 Storico</button><button class="btn" data-go="altro">💾 Backup</button></div>`;
@@ -326,7 +399,7 @@
     const view = PL.view;
     const picHtml = view === 'web' ? `<img id="webf" src="${web[0]}" alt="Foto dell'esercizio"><span class="fase" id="fase">Partenza</span>`
       : view === 'mia' ? `<img data-fimg="${e.id}" alt="">` : view === 'dis' ? ATTREZZI.svg(att) : picOf(e);
-    const kind = cardio ? (PL.i === 0 ? 'Riscaldamento' : 'Cardio') : (A ? A.cat[0] : 'Esercizio');
+    const kind = cardio ? (PL.i === 0 && list.length > 2 ? 'Riscaldamento' : 'Cardio') : (A ? A.cat[0] : 'Esercizio');
     let main;
     if (all) main = `<button class="do next" id="avanti">${PL.i === list.length - 1 ? '🏁 Finisci l\'allenamento' : 'Avanti: esercizio dopo →'}</button>`;
     else if (cardio) main = `<button class="do" id="fatto">▶ Avvia ${e.reps} minuti</button>`;
@@ -334,6 +407,7 @@
     $('#play').innerHTML = `
       <div class="bar"><button class="round" id="esci" aria-label="Esci">✕</button><div class="prog"><div style="width:${tot ? fatti / tot * 100 : 0}%"></div></div>
         <span class="count">${PL.i + 1} / ${list.length}</span></div>
+      <div class="clock" id="clock"></div>
       <div class="pic ${view === 'web' ? 'web' : ''}">${picHtml}${views.length > 1 ? `<button class="swap" id="swap">${VIEW_LBL[views[(views.indexOf(view) + 1) % views.length]]}</button>` : ''}${A ? '<button class="info" id="info" aria-label="Come si usa">i</button>' : ''}</div>
       <div class="kind">${esc(kind)}</div>
       <div class="exname">${esc(e.name)}</div>
@@ -351,6 +425,7 @@
       let k = 0;
       PL.anim = setInterval(() => { const im = $('#webf'), fa = $('#fase'); if (!im) return clearInterval(PL.anim); k = 1 - k; im.src = web[k]; fa.textContent = k ? 'Arrivo' : 'Partenza'; }, 1400);
     }
+    tickClock();
     if ($('#swap')) $('#swap').onclick = () => { PL.view = views[(views.indexOf(view) + 1) % views.length]; renderPlay(); };
     $('#esci').onclick = () => { if (confirm('Uscire dall\'allenamento? Le serie fatte restano salvate.')) stopPlay(); };
     $('#prev').onclick = () => move(-1);
@@ -364,6 +439,13 @@
       if (k < done.length) { if (confirm(`Togliere la serie ${k + 1}?`)) { unlogSet(e, k); renderPlay(); } }
     });
   }
+  // da quanto si sta allenando e che ore sono (va alle 6 e ha un'ora)
+  function tickClock() {
+    const el = $('#clock'); if (!el || !PL) return;
+    const m = Math.floor((Date.now() - PL.start) / 60000);
+    el.textContent = `🕒 ${new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })} · in palestra da ${m} min`;
+  }
+  setInterval(tickClock, 20000);
   function move(step) { PL.i = Math.max(0, PL.i + step); PL.info = false; PL.view = null; renderPlay(); scrollTo(0, 0); }
   const VIEW_LBL = { web: '📷 Foto', dis: '✏️ Disegno', mia: '📱 La mia foto' };
   function logSet(e) {
