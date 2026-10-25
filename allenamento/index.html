@@ -177,11 +177,11 @@
 <input type="file" id="cam" accept="image/*" class="hidden">
 <input type="file" id="impf" accept="application/json,.json" class="hidden">
 
-<script src="attrezzi.js"></script>
+<script src="attrezzi.js?v=2.2"></script>
 <script>
 (() => {
   const KEY = 'palestra.v1';
-  const APP_VER = '2.1';
+  const APP_VER = '2.2';
   const $ = s => document.querySelector(s);
   const uid = () => Math.random().toString(36).slice(2, 9);
   const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -320,7 +320,7 @@
     const all = done.length >= e.sets, cardio = u === 'min';
     const tot = list.reduce((t, x) => t + x.sets, 0), fatti = list.reduce((t, x) => t + Math.min(x.sets, doneSets(x.id).length), 0);
     // cosa mostrare: foto mia, foto vera dell'esercizio, disegno. Si parte dalla foto vera se c'e'.
-    const web = ATTREZZI.fotoEs(e.name);
+    const web = ATTREZZI.fotoEs ? ATTREZZI.fotoEs(e.name) : null;
     const views = [e.foto && 'mia', web && 'web', att && 'dis'].filter(Boolean);
     if (!views.includes(PL.view)) PL.view = views.includes('web') ? 'web' : views[0];
     const view = PL.view;
@@ -629,7 +629,7 @@
       const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
       if (reg) await reg.update();
       const keys = (await caches.keys()).filter(k => k.startsWith('allenamento-'));
-      for (const f of ['./', './index.html', './attrezzi.js', './manifest.json']) {
+      for (const f of ['./', './index.html', document.querySelector('script[src^="attrezzi.js"]').getAttribute('src'), './manifest.json']) {
         const r = await fetch(f, { cache: 'reload' }); if (!r.ok) throw 0;
         for (const k of keys) await (await caches.open(k)).put(f, r.clone());
       }
@@ -658,7 +658,7 @@
     navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
     navigator.serviceWorker.ready.then(() => {
       if (!navigator.onLine) return;
-      const urls = new Set(S.days.flatMap(d => d.exercises.flatMap(e => ATTREZZI.fotoEs(e.name) || [])));
+      const urls = new Set(S.days.flatMap(d => d.exercises.flatMap(e => (ATTREZZI.fotoEs && ATTREZZI.fotoEs(e.name)) || [])));
       urls.forEach(u => fetch(u).catch(() => {}));
     });
   }

@@ -1,6 +1,6 @@
 // Service worker della palestra: tiene la pagina sul telefono per usarla offline.
 // A ogni modifica dei file cambia VER, cosi' il telefono scarica la versione nuova.
-const VER = 'allenamento-v4';
+const VER = 'allenamento-v5';
 const FILES = ['./', './index.html', './attrezzi.js', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -20,7 +20,8 @@ self.addEventListener('activate', e => {
 const NET_FIRST = /\/(index\.html|attrezzi\.js)?$/;
 const fromNet = (req, key) => new Promise((res, rej) => {
   const t = setTimeout(() => rej(new Error('lenta')), 3000);
-  fetch(req).then(r => {
+  // no-cache: chiede sempre al server se il file e' cambiato (non la copia del browser)
+  fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' }).then(r => {
     clearTimeout(t);
     if (r.ok) { const copy = r.clone(); caches.open(VER).then(c => c.put(key, copy)); }
     res(r);
