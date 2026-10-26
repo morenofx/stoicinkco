@@ -38,6 +38,36 @@
   .m .pb{stroke:var(--body2);fill:none}
   .m .hd{fill:var(--body)}
   .m .ar .fr{stroke:var(--ok)} .m .ar .pd{fill:var(--ok)}
+  /* il muscolo che lavora */
+  .m.hi-leg [data-p=leg], .m.hi-arm [data-p=arm], .m.hi-torso [data-p=torso]{stroke:#8ee05f}
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .tags span{font-size:.85rem;font-weight:700;padding:5px 10px;border-radius:999px;background:rgba(142,224,95,.14);color:#a9ea85;border:1px solid rgba(142,224,95,.35)}
+  .tags span.mv{background:var(--card2);color:var(--cream);border-color:var(--line)}
+  .come{font-size:.95rem;margin-top:8px;color:var(--cream)} .come b{color:#a9ea85}
+  .step4{display:flex;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+  .step4 i{font-style:normal;flex:none;width:30px;height:30px;border-radius:50%;background:var(--card2);display:grid;place-items:center;font-weight:800}
+  .step4 b{display:block;margin-bottom:2px}
+  .step4.err i{background:rgba(232,162,92,.2);color:var(--warn)}
+  .sheet .gpic{background:var(--card2);border-radius:12px;padding:6px;margin-bottom:8px}
+  .sheet .gpic svg{width:100%;height:auto;max-height:28vh}
+  /* peso */
+  .pbig{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+  .pbig div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+  .pbig small{display:block;color:var(--dim);font-size:.85rem}
+  .pbig b{font-size:1.6rem}
+  .pbig .ok b{color:var(--ok)}
+  .pbar{height:12px;background:var(--card2);border-radius:6px;overflow:hidden;margin:6px 0 4px}
+  .pbar div{height:100%;background:var(--ok)}
+  .pin{display:flex;gap:10px;margin:12px 0}
+  .pin input{flex:1;height:58px;border-radius:14px;border:1px solid var(--line);background:var(--card2);padding:0 14px;font-size:1.4rem;outline:0}
+  .pin button{width:110px;border-radius:14px;background:var(--cream);color:var(--bg);font-weight:800;font-size:1.05rem}
+  .chart{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;margin-bottom:12px}
+  .chart svg{width:100%;height:auto;display:block}
+  .prow{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+  .prow:first-child{border-top:0}
+  .prow span{color:var(--dim)} .prow button{color:var(--dim);font-size:1.1rem;width:36px;height:36px}
+  .wcard{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin-top:6px}
+  .wcard .ic{font-size:1.6rem} .wcard b{display:block;font-size:1.05rem} .wcard small{color:var(--dim)}
 
   /* barra in alto */
   .bar{display:flex;align-items:center;gap:10px;margin-bottom:16px}
@@ -207,6 +237,7 @@
 <section id="altro" class="scr hidden"></section>
 <section id="mangia" class="scr hidden"></section>
 <section id="spesa" class="scr hidden"></section>
+<section id="peso" class="scr hidden"></section>
 
 <div id="rest" class="hidden"></div>
 <div id="sheet" class="sheet hidden"></div>
@@ -214,11 +245,11 @@
 <input type="file" id="cam" accept="image/*" class="hidden">
 <input type="file" id="impf" accept="application/json,.json" class="hidden">
 
-<script src="attrezzi.js?v=3.0"></script>
+<script src="attrezzi.js?v=3.1"></script>
 <script>
 (() => {
   const KEY = 'palestra.v1';
-  const APP_VER = '3.0';
+  const APP_VER = '3.1';
   const $ = s => document.querySelector(s);
   const uid = () => Math.random().toString(36).slice(2, 9);
   const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -363,10 +394,10 @@
   }
 
   /* ---------- SCHERMATE ---------- */
-  const SCREENS = ['home', 'play', 'edit', 'pick', 'exedit', 'storico', 'altro', 'mangia', 'spesa'];
+  const SCREENS = ['home', 'play', 'edit', 'pick', 'exedit', 'storico', 'altro', 'mangia', 'spesa', 'peso'];
   function go(name) {
     SCREENS.forEach(s => $('#' + s).classList.toggle('hidden', s !== name));
-    ({ home: renderHome, edit: renderEdit, pick: renderPick, storico: renderStorico, altro: renderAltro, mangia: renderMangia, spesa: renderSpesa })[name]?.();
+    ({ home: renderHome, edit: renderEdit, pick: renderPick, storico: renderStorico, altro: renderAltro, mangia: renderMangia, spesa: renderSpesa, peso: renderPeso })[name]?.();
     scrollTo(0, 0);
   }
   let toastT;
@@ -393,7 +424,7 @@
         h += `<div class="riposo"><b>🚶 Oggi camminata tranquilla</b><span>Niente pesi: 30 minuti a passo leggero, per non perdere il ritmo. Devi riuscire a parlare senza fiatone.${dom ? ` Domani: <b>${esc(dom.name)}</b>.` : ''}</span></div>`;
       }
       if (dOggi) h += dayCard(dOggi);
-      h += mealCard(t);
+      h += weightCard() + mealCard(t);
       h += `<h3 class="sez">I prossimi giorni</h3><div class="week">`;
       for (let i = 0; i < 7; i++) {
         const iso = isoOf(dateOf(t).getTime() + i * DAY_MS), d = dayForRole(roleOn(iso));
@@ -404,7 +435,7 @@
       h += `</div><h3 class="sez">Oppure scegli tu</h3>`;
       for (const d of S.days) if (d !== dOggi) h += dayCard(d);
     } else {
-      h += `<p class="hint">Scegli l'allenamento di oggi e tocca <b>Inizia</b>.</p>` + S.days.map(dayCard).join('') + mealCard(t);
+      h += `<p class="hint">Scegli l'allenamento di oggi e tocca <b>Inizia</b>.</p>` + S.days.map(dayCard).join('') + weightCard() + mealCard(t);
     }
     h += `<div class="row2"><button class="btn" data-go="mangia">🍽 Menu settimana</button><button class="btn" data-go="spesa">🛒 Lista spesa</button></div>
       <button class="btn" data-go="edit">✎ Crea o cambia la mia scheda</button>
@@ -429,6 +460,7 @@
     const d = dayOf(PL.day), list = d.exercises;
     if (PL.i >= list.length) return renderFine();
     const e = list[PL.i], done = doneSets(e.id), att = attOf(e), A = att && ATTREZZI.byId(att), u = unitOf(e);
+    const G = ATTREZZI.guida ? ATTREZZI.guida(e.name, att) : null;
     const all = done.length >= e.sets, cardio = u === 'min';
     const tot = list.reduce((t, x) => t + x.sets, 0), fatti = list.reduce((t, x) => t + Math.min(x.sets, doneSets(x.id).length), 0);
     // cosa mostrare: foto mia, foto vera dell'esercizio, disegno. Si parte dalla foto vera se c'e'.
@@ -447,10 +479,10 @@
       <div class="bar"><button class="round" id="esci" aria-label="Esci">✕</button><div class="prog"><div style="width:${tot ? fatti / tot * 100 : 0}%"></div></div>
         <span class="count">${PL.i + 1} / ${list.length}</span></div>
       <div class="clock" id="clock"></div>
-      <div class="pic ${view === 'web' ? 'web' : ''}">${picHtml}${views.length > 1 ? `<button class="swap" id="swap">${VIEW_LBL[views[(views.indexOf(view) + 1) % views.length]]}</button>` : ''}${A ? '<button class="info" id="info" aria-label="Come si usa">i</button>' : ''}</div>
+      <div class="pic ${view === 'web' ? 'web' : ''}">${picHtml}${views.length > 1 ? `<button class="swap" id="swap">${VIEW_LBL[views[(views.indexOf(view) + 1) % views.length]]}</button>` : ''}${G ? '<button class="info" id="info" aria-label="Guida passo passo">i</button>' : ''}</div>
       <div class="kind">${esc(kind)}</div>
       <div class="exname">${esc(e.name)}</div>
-      ${PL.info && A ? `<p class="how">${esc(A.come)}</p>` : ''}
+      ${G ? `<div class="tags"><span>💪 ${esc(G.m)}</span><span class="mv">➜ ${esc(G.cue)}</span></div><p class="come"><b>Come fare:</b> ${esc(G.p[1])}</p>` : ''}
       <div class="target">${cardio ? `<b>${e.reps}</b> minuti` : `<b>${e.sets}</b> serie da <b>${e.reps}</b> ${unitWord(e, e.reps)}`}</div>
       ${usesKg(e) && !cardio ? `<div class="kg"><button data-kg="-2.5" aria-label="Meno peso">−</button><span>${e.weight} kg</span><button data-kg="2.5" aria-label="Più peso">+</button></div>` : ''}
       ${e.sets > 1 ? `<div class="dots">${Array.from({ length: e.sets }, (_, k) => `<button class="${k < done.length ? 'on' : ''}" data-dot="${k}" aria-label="Serie ${k + 1}"></button>`).join('')}</div>` : ''}
@@ -469,7 +501,7 @@
     $('#esci').onclick = () => { if (confirm('Uscire dall\'allenamento? Le serie fatte restano salvate.')) stopPlay(); };
     $('#prev').onclick = () => move(-1);
     $('#next').onclick = () => move(1);
-    if ($('#info')) $('#info').onclick = () => { PL.info = !PL.info; renderPlay(); };
+    if ($('#info')) $('#info').onclick = () => guideSheet(e);
     if ($('#avanti')) $('#avanti').onclick = () => move(1);
     if ($('#fatto')) $('#fatto').onclick = () => cardio ? runTimer(e.reps * 60, 'Cardio: ' + e.name, () => logSet(e)) : logSet(e);
     $('#play').querySelectorAll('[data-kg]').forEach(b => b.onclick = () => { e.weight = Math.max(0, Math.round((+e.weight + +b.dataset.kg) * 10) / 10); save(); renderPlay(); });
@@ -781,6 +813,71 @@
     $('#spesa').innerHTML = h;
     $('#spesa').querySelectorAll('[data-sp]').forEach(c => c.onchange = () => { S.spesa[c.dataset.sp] = c.checked; c.closest('.chk').classList.toggle('on', c.checked); save(); });
     $('#sprst').onclick = () => { if (confirm('Togliere tutte le spunte?')) { S.spesa = {}; save(); renderSpesa(); } };
+  }
+
+  /* ---------- GUIDA PASSO PASSO ---------- */
+  function guideSheet(e) {
+    const att = attOf(e), G = ATTREZZI.guida(e.name, att); if (!G) return;
+    const T = ['Posizione e sedile', 'Il movimento', 'Il ritorno', 'Errore da evitare'];
+    sheet(`<h3>${esc(e.name)}</h3>${att ? `<div class="gpic">${ATTREZZI.svg(att)}</div>` : ''}
+      <div class="tags" style="margin:0 0 6px"><span>💪 ${esc(G.m)}</span><span class="mv">➜ ${esc(G.cue)}</span></div>` +
+      G.p.map((t, i) => `<div class="step4 ${i === 3 ? 'err' : ''}"><i>${i === 3 ? '!' : i + 1}</i><span><b>${T[i]}</b>${esc(t)}</span></div>`).join('') +
+      `<button class="btn main" data-close>Ho capito</button>`);
+  }
+
+  /* ---------- PESO ---------- */
+  // pesate in S.pesi = [{ d: 'aaaa-mm-gg', kg }], obiettivo -10 kg dalla prima pesata
+  const fmtKg = n => n.toFixed(1).replace('.', ',') + ' kg';
+  function pesoStato() {
+    const P = (S.pesi || []).slice().sort((a, b) => a.d < b.d ? -1 : 1);
+    if (!P.length) return null;
+    const start = P[0].kg, now = P[P.length - 1].kg, target = S.pesoTarget || Math.round((start - 10) * 10) / 10;
+    return { P, start, now, target, persi: Math.round((start - now) * 10) / 10, mancano: Math.max(0, Math.round((now - target) * 10) / 10) };
+  }
+  function weightCard() {
+    const st = pesoStato();
+    return `<button class="wcard" data-go="peso"><span class="ic">⚖️</span><span><b>${st ? `${fmtKg(st.now)} · ${st.persi >= 0 ? '-' : '+'}${fmtKg(Math.abs(st.persi))}` : 'Il mio peso'}</b>
+      <small>${st ? (st.mancano > 0 ? `Mancano ${fmtKg(st.mancano)} all'obiettivo` : 'Obiettivo raggiunto! 🎉') : 'Pesati a digiuno e segnalo qui'}</small></span></button>`;
+  }
+  function renderPeso() {
+    const st = pesoStato(), t = todayISO();
+    let h = `<div class="bar"><button class="round" data-go="home" aria-label="Indietro">‹</button><h2>Il mio peso</h2><span style="width:48px"></span></div>`;
+    if (st) {
+      const fatto = st.target < st.start ? Math.min(100, Math.max(0, (st.start - st.now) / (st.start - st.target) * 100)) : 0;
+      h += `<div class="pbig"><div><small>Partenza</small><b>${fmtKg(st.start)}</b></div><div><small>Oggi</small><b>${fmtKg(st.now)}</b></div>
+        <div class="ok"><small>Persi</small><b>${st.persi >= 0 ? '-' : '+'}${fmtKg(Math.abs(st.persi))}</b></div><div><small>Mancano</small><b>${fmtKg(st.mancano)}</b></div></div>
+        <div class="pbar"><div style="width:${fatto}%"></div></div><p class="note" style="margin-top:0">Obiettivo ${fmtKg(st.target)} · ${Math.round(fatto)}% fatto · <button id="ptarget" style="text-decoration:underline;color:inherit">cambia</button></p>`;
+      if (st.P.length > 1) {
+        const W = 300, H = 130, pad = 14, xs = st.P.map((_, i) => pad + i * (W - 2 * pad) / (st.P.length - 1));
+        const lo = Math.min(st.target, ...st.P.map(x => x.kg)) - 0.5, hi = Math.max(...st.P.map(x => x.kg)) + 0.5;
+        const y = kg => pad + (hi - kg) / (hi - lo) * (H - 2 * pad);
+        h += `<div class="chart"><svg viewBox="0 0 ${W} ${H}"><line x1="${pad}" x2="${W - pad}" y1="${y(st.target)}" y2="${y(st.target)}" stroke="#9bd17a" stroke-dasharray="5 5" stroke-width="1.5"/>
+          <polyline fill="none" stroke="#F5E6C8" stroke-width="3" stroke-linejoin="round" points="${st.P.map((p, i) => xs[i] + ',' + y(p.kg)).join(' ')}"/>
+          ${st.P.map((p, i) => `<circle cx="${xs[i]}" cy="${y(p.kg)}" r="4" fill="#F5E6C8"/>`).join('')}
+          <text x="${W - pad}" y="${y(st.target) - 5}" fill="#9bd17a" font-size="11" text-anchor="end">obiettivo</text></svg></div>`;
+      }
+    } else {
+      h += `<p class="hint">Scrivi il tuo peso di oggi: diventa la partenza, e l'obiettivo è 10 kg in meno.</p>`;
+    }
+    const oggi = (S.pesi || []).find(x => x.d === t);
+    h += `<div class="pin"><input id="pkg" type="text" inputmode="decimal" autocomplete="off" placeholder="es. 88,5" value="${oggi ? String(oggi.kg).replace('.', ',') : ''}"><button id="psave">Salva</button></div>
+      <p class="note">Pesati <b>una volta a settimana</b>, il lunedì mattina: a digiuno, dopo il bagno, sempre con la stessa bilancia. Il peso va su e giù di un chilo da un giorno all'altro: conta come scende in un mese.</p>`;
+    if (st) h += `<h3 class="sez">Le pesate</h3><div class="week">` + st.P.slice().reverse().map(p => `<div class="prow"><span>${fmtDate(p.d)}</span><b>${fmtKg(p.kg)}</b><button data-pdel="${p.d}" aria-label="Cancella">✕</button></div>`).join('') + '</div>';
+    $('#peso').innerHTML = h;
+    $('#psave').onclick = () => {
+      const kg = Math.round(parseFloat(String($('#pkg').value).replace(',', '.')) * 10) / 10;
+      if (!(kg >= 30 && kg <= 250)) return toast('Scrivi il peso in kg, es. 88,5');
+      S.pesi = (S.pesi || []).filter(x => x.d !== t); S.pesi.push({ d: t, kg }); save(); toast('Peso salvato'); renderPeso();
+    };
+    $('#peso').querySelectorAll('[data-pdel]').forEach(b => b.onclick = () => {
+      if (!confirm('Cancellare questa pesata?')) return;
+      S.pesi = S.pesi.filter(x => x.d !== b.dataset.pdel); save(); renderPeso();
+    });
+    if ($('#ptarget')) $('#ptarget').onclick = () => {
+      const v = prompt('Peso obiettivo in kg', String(st.target).replace('.', ','));
+      const kg = Math.round(parseFloat(String(v || '').replace(',', '.')) * 10) / 10;
+      if (kg >= 30 && kg <= 250) { S.pesoTarget = kg; save(); renderPeso(); }
+    };
   }
 
   /* ---------- STORICO ---------- */

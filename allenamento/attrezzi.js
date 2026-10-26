@@ -23,15 +23,16 @@
     PAD(cx - len / 2 - 4, cy - ph / 2, 8, ph) + PAD(cx + len / 2 - 4, cy - ph / 2, 8, ph) + '</g>';
   const G = '<line class="gr" x1="6" y1="131" x2="194" y2="131"/>';
   // omino: h testa, n collo/spalle, hp anca; k/f gamba davanti, k2/f2 dietro; e/a braccio davanti, e2/a2 dietro
-  const seg = (cls, w, p) => `<polyline class="${cls}" stroke-width="${w}" points="${p.map(q => q.join(',')).join(' ')}"/>`;
+  // data-p dice che parte del corpo e': il CSS colora quella che lavora (classe hi-leg / hi-arm / hi-torso sull'svg)
+  const seg = (cls, w, p, part) => `<polyline class="${cls}" data-p="${part}" stroke-width="${w}" points="${p.map(q => q.join(',')).join(' ')}"/>`;
   const P = (o, both) => {
     const back = both ? 'ps' : 'pb';
     let s = '';
-    if (o.k2) s += seg(back, 7, [o.hp, o.k2, o.f2]);
-    if (o.e2) s += seg(back, 6, [o.n, o.e2, o.a2]);
-    s += seg('ps', 12, [o.n, o.hp]);
-    if (o.k) s += seg('ps', 8, [o.hp, o.k, o.f]);
-    if (o.e) s += seg('ps', 7, [o.n, o.e, o.a]);
+    if (o.k2) s += seg(back, 7, [o.hp, o.k2, o.f2], 'leg');
+    if (o.e2) s += seg(back, 6, [o.n, o.e2, o.a2], 'arm');
+    s += seg('ps', 12, [o.n, o.hp], 'torso');
+    if (o.k) s += seg('ps', 8, [o.hp, o.k, o.f], 'leg');
+    if (o.e) s += seg('ps', 7, [o.n, o.e, o.a], 'arm');
     return s + `<circle class="hd" cx="${o.h[0]}" cy="${o.h[1]}" r="9"/>`;
   };
   const ARROW = (x1, y1, x2, y2) => `<g class="ar">${TH(x1, y1, x2, y2)}<circle class="pd" cx="${x2}" cy="${y2}" r="3"/></g>`;
@@ -244,7 +245,48 @@
       ex: [['Stepper', 1, 15, 0, 'min']] }
   ];
 
-  const svg = id => `<svg class="m" viewBox="0 0 200 140" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ART[id] || ''}</svg>`;
+
+  // Guida di ogni attrezzo: m = muscolo che lavora, cue = il movimento in 3-4 parole,
+  // p = passo passo [posizione e sedile, movimento, ritorno, errore da evitare], hi = parte del corpo da colorare.
+  const GUIDE = {
+    manubri: { hi: 'arm', m: 'Spalle', cue: 'Alza fino alle spalle', p: ['In piedi, un manubrio per mano lungo i fianchi, piedi larghi come le anche.', 'Alza le braccia di lato, gomiti appena piegati, fino all\'altezza delle spalle.', 'Scendi piano, in 2-3 secondi.', 'Non dare lo slancio con la schiena e non alzare le spalle verso le orecchie.'] },
+    bilanciere: { hi: 'torso', m: 'Schiena e gambe', cue: 'Schiena sempre dritta', p: ['Piedi sotto il bilanciere, larghi come le anche. Prendi la sbarra poco più larga delle gambe.', 'Muoviti con la schiena dritta, il peso vicino al corpo.', 'Torna giù controllando il peso, senza curvarti.', 'Mai curvare la schiena: se succede, il peso è troppo.'] },
+    ez: { hi: 'arm', m: 'Bicipiti', cue: 'Gomiti fermi ai fianchi', p: ['In piedi, prendi la sbarra nelle curve, braccia lungo il corpo.', 'Piega i gomiti e porta la sbarra verso il petto.', 'Scendi piano fino a braccia quasi tese.', 'Non portare avanti i gomiti e non dondolare.'] },
+    panca: { hi: 'arm', m: 'Petto e tricipiti', cue: 'Spingi verso l\'alto', p: ['Sdraiati con gli occhi sotto la sbarra, piedi a terra, scapole strette.', 'Scendi a sfiorare il petto e spingi su espirando.', 'Riscendi piano, gomiti a 45 gradi dal corpo.', 'Non far rimbalzare la sbarra sul petto. Con carichi alti fatti assistere.'] },
+    inclinata: { hi: 'arm', m: 'Petto alto e spalle', cue: 'Spingi sopra il petto', p: ['Schienale a 30-45 gradi, un manubrio per mano all\'altezza del petto.', 'Spingi in alto sopra il petto.', 'Scendi piano fino all\'altezza del petto.', 'Non staccare la schiena dallo schienale.'] },
+    addominali: { hi: 'torso', m: 'Addominali', cue: 'Arrotola la schiena', p: ['Aggancia i piedi sotto i rulli, mani al petto.', 'Sali arrotolando la schiena, espirando.', 'Scendi piano, vertebra dopo vertebra.', 'Non tirare il collo con le mani.'] },
+    tappetino: { hi: 'torso', m: 'Addominali', cue: 'Pancia dentro', p: ['Sdraiato sul tappetino.', 'Stringi la pancia ed esegui il movimento piano.', 'Torna piano alla partenza.', 'Non trattenere il fiato.'] },
+    scott: { hi: 'arm', m: 'Bicipiti', cue: 'Braccia sul cuscino', p: ['Siediti, il retro delle braccia appoggiato sul cuscino inclinato.', 'Piega i gomiti portando la sbarra verso le spalle.', 'Scendi piano senza stendere di colpo.', 'Non staccare le braccia dal cuscino.'] },
+    lat: { hi: 'arm', m: 'Schiena (dorsali)', cue: 'Tira al petto', p: ['Cosce bloccate sotto il rullo, piedi a terra. Prendi la sbarra larga, poco più delle spalle.', 'Tira la sbarra davanti fino al petto, gomiti in basso e indietro, petto in fuori.', 'Risali piano fino a braccia quasi tese.', 'Non tirare dietro la nuca e non dondolare col busto.'] },
+    pulley: { hi: 'arm', m: 'Centro della schiena', cue: 'Gomiti indietro', p: ['Siediti, piedi sulla pedana, ginocchia appena piegate, schiena dritta.', 'Tira la maniglia verso la pancia stringendo le scapole.', 'Torna avanti piano con le braccia tese.', 'Non dondolare avanti e indietro col busto.'] },
+    legpress: { hi: 'leg', m: 'Quadricipiti e glutei', cue: 'Spingi coi talloni', p: ['Schiena e testa ben appoggiate. Piedi a metà pedana, larghi come le spalle.', 'Sblocca le maniglie e spingi la pedana coi talloni fino a gambe quasi tese.', 'Scendi piano fino a ginocchia a 90 gradi.', 'Non bloccare le ginocchia tese in alto e non staccare il sedere dallo schienale.'] },
+    hack: { hi: 'leg', m: 'Quadricipiti e glutei', cue: 'Spingi coi talloni', p: ['Schiena contro lo schienale, spalle sotto i cuscinetti, piedi a metà pedana.', 'Scendi piegando le ginocchia fino a 90 gradi.', 'Risali spingendo coi talloni.', 'Le ginocchia seguono la punta dei piedi: non farle chiudere verso l\'interno.'] },
+    legext: { hi: 'leg', m: 'Quadricipiti (davanti alla coscia)', cue: 'Stendi le gambe', p: ['Regola lo schienale: il ginocchio all\'altezza del perno della macchina. Rullo sopra le caviglie.', 'Stendi le gambe fino in alto e fermati un secondo.', 'Scendi piano, senza far sbattere i pesi.', 'Non dare il colpo e non staccare il sedere dal sedile.'] },
+    legcurl: { hi: 'leg', m: 'Femorali (dietro alla coscia)', cue: 'Talloni verso il sedere', p: ['A pancia in giù (o seduto), ginocchia appena fuori dalla panca, rullo sopra i talloni.', 'Piega le ginocchia portando i talloni verso il sedere.', 'Torna giù piano fino a gambe quasi tese.', 'Non alzare il bacino dalla panca.'] },
+    chestpress: { hi: 'arm', m: 'Petto e tricipiti', cue: 'Spingi in avanti', p: ['Regola il sedile: maniglie all\'altezza del petto. Schiena tutta appoggiata.', 'Spingi le maniglie in avanti fino a braccia quasi tese, espirando.', 'Torna indietro piano finché le mani arrivano vicino al petto.', 'Non staccare la schiena e non bloccare i gomiti tesi.'] },
+    butterfly: { hi: 'arm', m: 'Petto', cue: 'Chiudi come un abbraccio', p: ['Regola il sedile: braccia all\'altezza delle spalle. Schiena appoggiata.', 'Chiudi le braccia davanti al petto come in un abbraccio.', 'Riapri piano finché senti allungare il petto, non oltre.', 'Non aprire troppo indietro: stressi le spalle.'] },
+    shoulder: { hi: 'arm', m: 'Spalle e tricipiti', cue: 'Spingi in alto', p: ['Regola il sedile: maniglie all\'altezza delle spalle. Schiena appoggiata.', 'Spingi in alto fino a braccia quasi tese.', 'Scendi piano fino all\'altezza delle orecchie.', 'Non inarcare la schiena e non bloccare i gomiti.'] },
+    cavi: { hi: 'arm', m: 'Petto e spalle', cue: 'Mani insieme davanti', p: ['Carrucole all\'altezza giusta, una maniglia per mano, un passo avanti.', 'Porta le maniglie insieme davanti a te, gomiti appena piegati.', 'Riapri piano controllando il cavo.', 'Non farti tirare indietro dal peso.'] },
+    cavoalto: { hi: 'arm', m: 'Tricipiti (dietro al braccio)', cue: 'Gomiti attaccati ai fianchi', p: ['In piedi davanti al cavo alto, corda in mano, gomiti attaccati ai fianchi.', 'Spingi la corda in basso fino a braccia tese, aprendola alla fine.', 'Risali piano fino a gomiti a 90 gradi.', 'Non muovere i gomiti e non usare il peso del corpo.'] },
+    smith: { hi: 'leg', m: 'Gambe e glutei', cue: 'Sedere indietro', p: ['Bilanciere guidato sulle spalle, piedi un po\' avanti, larghi come le spalle.', 'Scendi portando il sedere indietro, come per sederti.', 'Risali spingendo coi talloni.', 'Non far chiudere le ginocchia verso l\'interno.'] },
+    rack: { hi: 'leg', m: 'Gambe e glutei', cue: 'Sedere indietro', p: ['Sbarre di sicurezza poco sotto il punto più basso. Bilanciere sulle spalle.', 'Scendi col sedere indietro, schiena dritta.', 'Risali spingendo coi talloni.', 'Non curvare la schiena: se succede, il peso è troppo.'] },
+    calf: { hi: 'leg', m: 'Polpacci', cue: 'Sali sulle punte', p: ['Punte dei piedi sul gradino, spalle sotto i cuscinetti.', 'Sali sulle punte più in alto che puoi.', 'Scendi piano coi talloni sotto il gradino.', 'Non piegare le ginocchia per aiutarti.'] },
+    abductor: { hi: 'leg', m: 'Esterno coscia e glutei', cue: 'Apri le gambe', p: ['Siediti, schiena appoggiata, cuscinetti all\'esterno delle ginocchia.', 'Apri le gambe spingendo contro i cuscinetti.', 'Torna piano, senza far toccare i pesi.', 'Non piegarti in avanti col busto per aiutarti.'] },
+    trazioni: { hi: 'arm', m: 'Schiena e bicipiti', cue: 'Mento sopra la sbarra', p: ['Appeso alla sbarra, mani poco più larghe delle spalle.', 'Sali finché il mento supera la sbarra.', 'Scendi piano fino a braccia quasi tese.', 'Non dare lo slancio con le gambe.'] },
+    parallele: { hi: 'arm', m: 'Tricipiti e petto', cue: 'Gomiti a 90 gradi', p: ['Braccia tese sulle barre, busto dritto.', 'Scendi piegando i gomiti fino a 90 gradi.', 'Risali spingendo.', 'Non scendere troppo in basso: stressi le spalle.'] },
+    kettlebell: { hi: 'leg', m: 'Gambe e glutei', cue: 'Spinta dalle anche', p: ['Kettlebell in mano, piedi larghi come le spalle.', 'Esegui il movimento con la spinta delle anche, schiena dritta.', 'Torna controllato.', 'Non tirare con le braccia e non curvare la schiena.'] },
+    tapis: { hi: 'leg', m: 'Cuore, fiato e gambe', cue: 'Pendenza 8-10%, passo svelto', p: ['Aggancia la clip di sicurezza e parti a 3 km/h.', 'Porta la pendenza all\'8-10% e la velocità a 4,5-5 km/h: passo svelto, non corsa.', 'Devi riuscire a parlare, con un po\' di fiatone.', 'Non tenerti ai corrimano: il lavoro lo fanno le gambe.'] },
+    cyclette: { hi: 'leg', m: 'Cuore, fiato e gambe', cue: 'Pedala regolare', p: ['Sellino all\'altezza dell\'anca: con il pedale in basso la gamba resta appena piegata.', 'Pedala a ritmo regolare, resistenza media.', 'Ritmo da "riesco a parlare".', 'Non tenere il sellino troppo basso: fa male alle ginocchia.'] },
+    ellittica: { hi: 'leg', m: 'Cuore, fiato, gambe e braccia', cue: 'Spingi e tira insieme', p: ['Piedi ben appoggiati sulle pedane, mani sulle maniglie mobili.', 'Spingi coi piedi e tira e spingi con le braccia, movimento fluido.', 'Ritmo da "riesco a parlare".', 'Non staccare i talloni e non piegarti in avanti.'] },
+    vogatore: { hi: 'leg', m: 'Cuore, fiato, schiena e gambe', cue: 'Prima gambe, poi braccia', p: ['Piedi legati sulla pedana, maniglia in mano, ginocchia piegate.', 'Spingi prima con le gambe, poi tira la maniglia verso lo sterno.', 'Al ritorno: prima braccia avanti, poi pieghi le gambe.', 'Non curvare la schiena.'] },
+    stepper: { hi: 'leg', m: 'Cuore, fiato, glutei e polpacci', cue: 'Passi regolari', p: ['Tutto il piede sui pedali, mani leggere sulle maniglie.', 'Passi regolari, non troppo corti.', 'Ritmo da "riesco a parlare".', 'Non appoggiarti con tutto il peso alle maniglie.'] }
+  };
+  // per gli esercizi che sulla stessa macchina fanno un movimento diverso
+  const GUIDE_EX = {
+    'adductor': { hi: 'leg', m: 'Interno coscia', cue: 'Chiudi le gambe', p: ['Siediti, schiena appoggiata, cuscinetti all\'interno delle ginocchia, gambe poco aperte.', 'Chiudi le gambe stringendo i cuscinetti.', 'Riapri piano fino a un leggero allungamento.', 'Non partire con le gambe troppo aperte.'] },
+    'camminata tranquilla': { hi: 'leg', m: 'Cuore e fiato', cue: 'Passo leggero', p: ['Aggancia la clip di sicurezza.', 'Pendenza 0-3%, velocità 4-5 km/h: una camminata tranquilla.', 'Devi poter parlare senza fiatone.', 'Non correre: oggi è recupero.'] }
+  };
+  const svg = id => `<svg class="m${GUIDE[id] ? ' hi-' + GUIDE[id].hi : ''}" viewBox="0 0 200 140" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ART[id] || ''}</svg>`;
   // dal nome di un esercizio all'attrezzo che serve (anche per le schede gia' salvate)
   const BY_EX = {};
   for (const a of LIST) for (const e of a.ex) BY_EX[e[0].toLowerCase()] = a.id;
@@ -252,5 +294,6 @@
   // github.com/yuhonas/free-exercise-db. I file stanno in foto-es/.
   const FOTO_ES = { "curl manubri": "dumbbell_bicep_curl", "lento avanti manubri": "dumbbell_shoulder_press", "alzate laterali": "side_lateral_raise", "rematore manubrio": "one-arm_dumbbell_row", "affondi con manubri": "dumbbell_lunges", "rematore bilanciere": "bent_over_barbell_row", "stacco da terra": "barbell_deadlift", "curl bilanciere": "barbell_curl", "curl ez": "ez-bar_curl", "french press ez": "ez-bar_skullcrusher", "panca piana bilanciere": "barbell_bench_press_-_medium_grip", "panca piana manubri": "dumbbell_bench_press", "panca inclinata manubri": "incline_dumbbell_press", "panca inclinata bilanciere": "barbell_incline_bench_press_-_medium_grip", "crunch panca declinata": "decline_crunch", "sit up": "sit-up", "crunch": "crunches", "plank": "plank", "leg raise": "flat_bench_lying_leg_raise", "curl alla panca scott": "preacher_curl", "lat machine": "wide-grip_lat_pulldown", "lat machine presa stretta": "close-grip_front_lat_pulldown", "pulley basso": "seated_cable_rows", "leg press": "leg_press", "hack squat": "hack_squat", "leg extension": "leg_extensions", "leg curl": "lying_leg_curls", "chest press": "leverage_chest_press", "pectoral machine": "butterfly", "shoulder press": "leverage_shoulder_press", "croci ai cavi": "cable_crossover", "alzate laterali al cavo": "cable_seated_lateral_raise", "face pull": "face_pull", "push down al cavo": "triceps_pushdown_-_rope_attachment", "squat al multipower": "smith_machine_squat", "panca al multipower": "smith_machine_bench_press", "squat": "barbell_squat", "military press": "standing_military_press", "calf in piedi": "standing_calf_raises", "abductor": "thigh_abductor", "adductor": "thigh_adductor", "trazioni": "pullups", "dip alle parallele": "dips_-_triceps_version", "kettlebell swing": "one-arm_kettlebell_swings", "goblet squat": "goblet_squat", "tapis roulant": "walking_treadmill", "tapis roulant in salita": "walking_treadmill", "camminata tranquilla": "walking_treadmill", "riscaldamento tapis roulant": "walking_treadmill", "cyclette": "bicycling_stationary", "riscaldamento cyclette": "bicycling_stationary", "ellittica": "elliptical_trainer", "vogatore": "rowing_stationary", "stepper": "stairmaster" };
   const fotoEs = name => { const f = FOTO_ES[String(name).toLowerCase()]; return f ? [`foto-es/${f}-0.jpg`, `foto-es/${f}-1.jpg`] : null; };
-  window.ATTREZZI = { LIST, svg, fotoEs, byId: id => LIST.find(a => a.id === id), byExercise: name => BY_EX[String(name).toLowerCase()] };
+  const guida = (name, att) => GUIDE_EX[String(name).toLowerCase()] || GUIDE[att] || null;
+  window.ATTREZZI = { LIST, svg, fotoEs, guida, byId: id => LIST.find(a => a.id === id), byExercise: name => BY_EX[String(name).toLowerCase()] };
 })();
