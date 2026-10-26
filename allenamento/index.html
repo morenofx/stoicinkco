@@ -245,11 +245,11 @@
 <input type="file" id="cam" accept="image/*" class="hidden">
 <input type="file" id="impf" accept="application/json,.json" class="hidden">
 
-<script src="attrezzi.js?v=3.1"></script>
+<script src="attrezzi.js?v=3.2"></script>
 <script>
 (() => {
   const KEY = 'palestra.v1';
-  const APP_VER = '3.1';
+  const APP_VER = '3.2';
   const $ = s => document.querySelector(s);
   const uid = () => Math.random().toString(36).slice(2, 9);
   const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -728,92 +728,114 @@
   }
 
   /* ---------- COSA MANGIO ---------- */
-  // Pranzi: piatti XL surgelati di prepmymeal.it (2 porzioni per vaschetta, sezione "Perdita di peso", prezzi letti
-  // nel carrello il 26 ott 2026). Ogni vaschetta copre due pranzi di fila. Box da 18 XL = 36 porzioni, una volta al mese.
-  // Cene: "cene facili" con la spesa online della settimana. Calorie a porzione.
+  // Pranzi: piatti di pranzoalvolo.it (li ha gia' provati e gli piacciono), scelti tra i leggeri sotto le 500 kcal.
+  // Un ordine ogni 2 settimane = 15 piatti = 13 pranzi in fila (seppioline e insalata di mare vanno insieme).
+  // L'app mostra il prossimo pranzo della lista: funziona qualunque giorno arrivi l'ordine.
+  // Cene, colazioni e spuntini dal supermercato sotto casa (100 m). Calorie dalle schede del sito.
   const COLAZIONE = 'Yogurt greco magro + 4-5 cucchiai di fiocchi d\'avena + 1 frutto + 10 mandorle';
-  const MENU = [  // 0 = lunedi'
-    { p: ['Bowl di pollo in stile thai (apri la vaschetta, mangiane metà)'], pk: 330,
-      c: ['2-3 uova strapazzate', 'verdure surgelate', '2 gallette integrali'], ck: 400 },
-    { p: ['Bowl di pollo in stile thai (l\'altra metà)'], pk: 330,
-      c: ['1 scatoletta di tonno al naturale', 'mezzo barattolo di ceci', 'verdure surgelate'], ck: 420 },
-    { p: ['Paella con pollo (apri la vaschetta, mangiane metà)'], pk: 490,
-      c: ['Petto di pollo già cotto in busta', 'verdure surgelate', '2 gallette integrali'], ck: 400 },
-    { p: ['Paella con pollo (l\'altra metà)'], pk: 490,
-      c: ['Frittata di 3 uova con spinaci surgelati'], ck: 380 },
-    { p: ['Protein pasta al salmone (apri la vaschetta, mangiane metà)'], pk: 569,
-      c: ['1 scatoletta di tonno al naturale', 'mezzo barattolo di fagioli', 'verdure surgelate'], ck: 420 },
-    { p: ['Protein pasta al salmone (l\'altra metà)'], pk: 569,
-      c: ['Petto di pollo già cotto in busta', 'verdure surgelate'], ck: 380 },
-    { p: ['Curry rosso thailandese (apri la vaschetta, mangiane metà)'], pk: 555,
-      c: ['Curry rosso thailandese (l\'altra metà)'], ck: 555 }
+  const PRANZI = [
+    { n: 'Filetto di pollo alla griglia + verdure surgelate + 2 gallette', k: 400, nota: 'scade prima: mangialo per primo' },
+    { n: 'Paella di pesce e pollo + 1 frutto', k: 470 },
+    { n: 'Tagliata di pollo ai carciofi + verdure surgelate', k: 330 },
+    { n: 'Seppioline con piselli + Insalata di mare', k: 350 },
+    { n: 'Arrosto di tacchino con patate', k: 330 },
+    { n: 'Petto di pollo grigliato + verdure surgelate', k: 480 },
+    { n: 'Tagliata di manzo con patate', k: 454 },
+    { n: 'Paella di pesce e pollo + 1 frutto', k: 470 },
+    { n: 'Tagliata di pollo ai carciofi + verdure surgelate', k: 330 },
+    { n: 'Seppioline con piselli + Insalata di mare', k: 350 },
+    { n: 'Arrosto di tacchino con patate', k: 330, nota: 'dal freezer: spostalo in frigo la sera prima' },
+    { n: 'Petto di pollo grigliato + verdure surgelate', k: 480, nota: 'dal freezer: spostalo in frigo la sera prima' },
+    { n: 'Tagliata di manzo con patate', k: 454, nota: 'dal freezer: spostalo in frigo la sera prima' }
   ];
-  // [chiave, nome sul sito, quante vaschette XL, prezzo a vaschetta nella box da 18]
-  const SPESA_PMM = [
-    ['pmm-thai', 'Bowl di pollo in stile thai (XL, 2 porzioni)', 5, 11.48], ['pmm-paella', 'Paella con pollo (XL, 2 porzioni)', 5, 11.48],
-    ['pmm-salmone', 'Protein pasta al salmone (XL, 2 porzioni)', 4, 11.48], ['pmm-curry', 'Curry rosso thailandese (XL, 2 porzioni)', 4, 11.48]
+  const PRANZO_SCORTA = { n: 'Pollo già cotto in busta + verdure surgelate + 2 gallette', k: 400 };
+  const CENE = [  // 0 = lunedi'
+    { c: ['2-3 uova strapazzate', 'verdure surgelate', '2 gallette integrali'], ck: 400 },
+    { c: ['1 scatoletta di tonno al naturale', 'mezzo barattolo di ceci', 'verdure surgelate'], ck: 420 },
+    { c: ['Petto di pollo già cotto in busta', 'verdure surgelate', '2 gallette integrali'], ck: 400 },
+    { c: ['Frittata di 3 uova con spinaci surgelati'], ck: 380 },
+    { c: ['1 scatoletta di tonno al naturale', 'mezzo barattolo di fagioli', 'verdure surgelate'], ck: 420 },
+    { c: ['Petto di pollo già cotto in busta', 'verdure surgelate'], ck: 380 },
+    { c: ['2-3 uova strapazzate', 'verdure surgelate', '2 gallette integrali'], ck: 400 }
   ];
-  const SPEDIZIONE_PMM = 5.99;
-  // ogni settimana, spesa online: le 6 cene facili
-  const SPESA_VERDURE = [
-    ['v-uova', 'Uova', '6'], ['v-tonno', 'Tonno al naturale', '2 scatolette'],
-    ['v-ceci', 'Ceci in barattolo', '1'], ['v-fagioli', 'Fagioli in barattolo', '1'],
-    ['v-pollo', 'Petto di pollo già cotto (grigliato, in busta)', '2 confezioni'],
-    ['v-verdure', 'Verdure surgelate (spinaci, fagiolini, miste)', '3 buste'], ['v-gallette', 'Gallette integrali', '1 confezione (dura 2 settimane)']
+  // [chiave, nome sul sito, quanti, prezzo] - il carrello del 26 ott 2026 (il branzino era esaurito)
+  const SPESA_PAV = [
+    ['pav-filetto', 'Filetto di Pollo alla Griglia', 1, 5.90], ['pav-paella', 'Paella di Pesce e Pollo', 2, 4.60],
+    ['pav-tagliatap', 'Tagliata di Pollo ai Carciofi', 2, 5.90], ['pav-seppioline', 'Seppioline con Piselli', 2, 5.90],
+    ['pav-insmare', 'Insalata di Mare', 2, 4.90], ['pav-arrosto', 'Arrosto di Tacchino', 2, 5.90],
+    ['pav-petto', 'Petto di Pollo Grigliato', 2, 5.90], ['pav-tagliatab', 'Tagliata di Bovino con Patate al Forno', 2, 5.90]
   ];
-  const SPESA_CASA = [
-    ['c-yogurt', 'Yogurt greco magro 0% da 170 g', '7 vasetti'], ['c-avena', 'Fiocchi d\'avena', '1 pacco da 500 g (dura 2 settimane)'],
-    ['c-mandorle', 'Mandorle al naturale, non salate', '1 busta da 250 g'], ['c-mele', 'Mele', '7'], ['c-banane', 'Banane', '7'],
-    ['c-arance', 'Arance o kiwi', '7'], ['c-acqua', 'Acqua', '2 litri al giorno']
+  const SPEDIZIONE_PAV = 8.90;
+  const SPESA_SUPER = [
+    ['s-uova', 'Uova', '10'], ['s-tonno', 'Tonno al naturale', '2 scatolette'], ['s-ceci', 'Ceci in barattolo', '1'],
+    ['s-fagioli', 'Fagioli in barattolo', '1'], ['s-pollo', 'Petto di pollo già cotto (grigliato, in busta)', '2 confezioni (3 se un giorno manca il pranzo)'],
+    ['s-verdure', 'Verdure surgelate (spinaci, fagiolini, miste)', '4 buste'], ['s-gallette', 'Gallette integrali', '1 confezione (dura 2 settimane)'],
+    ['s-yogurt', 'Yogurt greco magro 0% da 170 g', '7 vasetti'], ['s-avena', 'Fiocchi d\'avena', '1 pacco da 500 g (dura 2 settimane)'],
+    ['s-mandorle', 'Mandorle al naturale, non salate', '1 busta da 250 g (dura 2 settimane)'],
+    ['s-mele', 'Mele', '7'], ['s-banane', 'Banane', '7'], ['s-arance', 'Arance o kiwi', '7']
   ];
   const fmtEuro = n => n.toFixed(2).replace('.', ',') + ' €';
-  const MOMENTI = d => [
-    ['☀️', 'Colazione', 'dopo la palestra', COLAZIONE],
-    ['🍎', 'Metà mattina', '', '1 frutto'],
-    ['🍽', 'Pranzo', `circa ${d.pk} kcal`, d.p.join(' + ')],
-    ['🥜', 'Pomeriggio', '', '1 frutto + 15 mandorle'],
-    ['🌙', 'Cena', `circa ${d.ck} kcal`, d.c.join(' + ')]
-  ];
+  const pranzoAttuale = () => { const i = S.pranzoIdx || 0; return i < PRANZI.length ? { ...PRANZI[i], i } : { ...PRANZO_SCORTA, i: -1 }; };
   function mealCard(iso) {
-    const d = MENU[dow(iso)];
-    return `<button class="meal" data-go="mangia"><b>🍽 Oggi mangi</b>
-      <span><i>Pranzo</i> ${esc(d.p.join(' + '))}</span><span><i>Cena</i> ${esc(d.c.join(' + '))}</span><em>Tutta la giornata ›</em></button>`;
+    const p = pranzoAttuale(), d = CENE[dow(iso)];
+    return `<div class="meal"><b>🍽 Oggi mangi</b>
+      <span><i>Pranzo</i> ${esc(p.n)}${p.i >= 0 ? ` <small style="color:var(--dim)">(${p.i + 1} di ${PRANZI.length})</small>` : ''}</span>
+      <span><i>Cena</i> ${esc(d.c.join(' + '))}</span>
+      <div class="row2" style="margin-top:10px">${p.i >= 0 ? '<button class="btn" id="mangiato" style="margin:0">✓ Pranzo mangiato</button>' : '<span></span>'}<button class="btn" data-go="mangia" style="margin:0">Tutta la giornata ›</button></div></div>`;
   }
   let mDay = null;
   function renderMangia() {
     const t = todayISO();
     if (mDay == null) mDay = dow(t);
-    const d = MENU[mDay];
+    const d = CENE[mDay], p = pranzoAttuale(), oggi = mDay === dow(t);
+    const MOM = [
+      ['☀️', 'Colazione', 'dopo la palestra', COLAZIONE],
+      ['🍎', 'Metà mattina', '', '1 frutto'],
+      ['🍽', 'Pranzo', oggi ? `circa ${p.k} kcal${p.nota ? ' · ' + p.nota : ''}` : 'il prossimo della lista qui sotto', oggi ? p.n : 'Un piatto Pranzoalvolo'],
+      ['🥜', 'Pomeriggio', '', '1 frutto + 15 mandorle'],
+      ['🌙', 'Cena', `circa ${d.ck} kcal`, d.c.join(' + ')]
+    ];
     let h = `<div class="bar"><button class="round" data-go="home" aria-label="Indietro">‹</button><h2>Cosa mangio</h2><span style="width:48px"></span></div>
       <div class="pills">${GIORNI.map((g, i) => `<button class="pill ${i === mDay ? 'on' : ''}" data-md="${i}">${i === dow(t) ? 'Oggi' : g.slice(0, 3)}</button>`).join('')}</div>
       <div class="week">`;
-    for (const [ic, nome, nota, cosa] of MOMENTI(d)) h += `<div class="mm"><span class="ic">${ic}</span><span><b>${nome}</b>${nota ? ` <small>${nota}</small>` : ''}<br>${esc(cosa)}</span></div>`;
+    for (const [ic, nome, nota, cosa] of MOM) h += `<div class="mm"><span class="ic">${ic}</span><span><b>${nome}</b>${nota ? ` <small>${esc(nota)}</small>` : ''}<br>${esc(cosa)}</span></div>`;
     h += `</div>
-      <p class="note">Pranzi Prepmymeal XL: la sera prima sposta la vaschetta dal freezer al frigo. Ne scaldi metà (3-4 minuti), l'altra metà resta in frigo per il pranzo del giorno dopo. La verdura in più è libera. Acqua: 2 litri al giorno. Dolci e alcol solo ogni tanto.</p>
+      <h3 class="sez">I pranzi Pranzoalvolo, in ordine</h3>
+      <p class="hint">Quando arriva l'ordine metti subito in freezer gli ultimi 3 (arrosto, petto di pollo, tagliata di manzo). Se finisci i piatti prima del nuovo ordine: ${esc(PRANZO_SCORTA.n.toLowerCase())}.</p>
+      <div class="week">${PRANZI.map((x, i) => `<div class="prow" style="${i === p.i ? 'background:var(--cream);color:var(--bg)' : ''}"><span style="${i === p.i ? 'color:var(--bg)' : ''}">${i < (S.pranzoIdx || 0) ? '✓' : i + 1}</span><b style="flex:1;margin-left:10px;font-weight:${i === p.i ? 800 : 500};${i < (S.pranzoIdx || 0) ? 'opacity:.45;text-decoration:line-through' : ''}">${esc(x.n)}</b></div>`).join('')}</div>
+      <div class="row2"><button class="btn" id="pindietro">↶ Annulla l'ultimo</button><button class="btn" id="pnuovo">📦 Arrivato ordine nuovo</button></div>
+      <p class="note">Piatti Pranzoalvolo: 2 minuti di microonde. La verdura in più è libera. Acqua: 2 litri al giorno. Dolci e alcol solo ogni tanto.</p>
       <button class="btn main" data-go="spesa">🛒 Lista della spesa</button>`;
     $('#mangia').innerHTML = h;
     $('#mangia').querySelectorAll('[data-md]').forEach(b => b.onclick = () => { mDay = +b.dataset.md; renderMangia(); });
+    $('#pindietro').onclick = () => { S.pranzoIdx = Math.max(0, (S.pranzoIdx || 0) - 1); save(); renderMangia(); };
+    $('#pnuovo').onclick = () => { if (confirm('È arrivato l\'ordine nuovo? La lista dei pranzi ricomincia dal primo.')) { S.pranzoIdx = 0; save(); renderMangia(); } };
   }
   function renderSpesa() {
     S.spesa ||= {};
-    const tot = SPESA_PMM.reduce((t, x) => t + x[2] * x[3], 0) + SPEDIZIONE_PMM;
+    const tot = SPESA_PAV.reduce((t, x) => t + x[2] * x[3], 0);
     const row = (k, nome, qta, extra) => `<label class="chk ${S.spesa[k] ? 'on' : ''}"><input type="checkbox" data-sp="${k}" ${S.spesa[k] ? 'checked' : ''}>
       <span><b>${esc(nome)}</b><small>${esc(qta)}${extra ? ' · ' + extra : ''}</small></span></label>`;
     let h = `<div class="bar"><button class="round" data-go="home" aria-label="Indietro">‹</button><h2>Lista spesa</h2><span style="width:48px"></span></div>
-      <h3 class="sez">1 · Prepmymeal.it · una volta al mese</h3>
-      <p class="hint">Una <b>box da 18 piatti XL</b>: 36 porzioni, i pranzi di tutto il mese. <b>${fmtEuro(tot)}</b> con la spedizione. Arriva il mercoledì, surgelata: servono 18 posti nel freezer.</p>
-      <div class="week">${SPESA_PMM.map(([k, n, q, pr]) => row(k, n, `${q} vaschette`, fmtEuro(q * pr))).join('')}</div>
-      <p class="note">Nel carrello controlla l'abbonamento: se vuoi ordinare a mano, lascialo spento. Si conservano 6 mesi nel freezer.</p>
-      <a class="btn" href="https://prepmymeal.it/products/box-da-6-pasti-perdita-di-peso" target="_blank" rel="noopener">Apri Prepmymeal.it ↗</a>
-      <h3 class="sez">2 · Spesa online · ogni settimana</h3>
-      <p class="hint">Le cene facili, le colazioni e gli spuntini. Ordinala da casa (per esempio Esselunga a casa o Amazon): così non vai al supermercato e non compri schifezze.</p>
-      <div class="week">${[...SPESA_VERDURE, ...SPESA_CASA].map(([k, n, q]) => row(k, n, q)).join('')}</div>
-      <button class="btn red" id="sprst">Togli tutte le spunte (nuova settimana)</button>
-      <p class="note">Prezzi letti nel carrello di Prepmymeal il 26 ottobre. Se un piatto manca, scegline un altro XL nella sezione "Perdita di peso" sotto le 600 calorie a porzione. Il totale della spesa online è una stima: circa 40 € a settimana.</p>`;
+      <h3 class="sez">1 · Pranzoalvolo.it · ogni 2 settimane</h3>
+      <p class="hint">15 piatti = 13 pranzi. <b>${fmtEuro(tot)}</b> + ${fmtEuro(SPEDIZIONE_PAV)} di spedizione = <b>${fmtEuro(tot + SPEDIZIONE_PAV)}</b>. Arriva in 1-2 giorni lavorativi.</p>
+      <div class="week">${SPESA_PAV.map(([k, n, q, pr]) => row(k, n, `${q} ${q === 1 ? 'porzione' : 'porzioni'}`, fmtEuro(q * pr))).join('')}</div>
+      <p class="note">Se un piatto è esaurito, scegline uno della sezione "I piatti GIUSTI" sotto le 500 calorie. Da evitare: vitello tonnato, burrito, involtini, pasta alla panna.</p>
+      <a class="btn" href="https://pranzoalvolo.it/shop/categorie/linea-benessere/" target="_blank" rel="noopener">Apri Pranzoalvolo.it ↗</a>
+      <h3 class="sez">2 · Supermercato sotto casa · ogni settimana</h3>
+      <p class="hint">Cene, colazioni e spuntini. Vai <b>dopo aver mangiato</b>, segui questa lista e fai solo le corsie che servono: frutta, frigo, surgelati, scatolame. Biscotti, patatine, dolci e bibite: quelle corsie non le attraversi.</p>
+      <div class="week">${SPESA_SUPER.map(([k, n, q]) => row(k, n, q)).join('')}</div>
+      <button class="btn red" id="sprst">Togli tutte le spunte (nuova spesa)</button>
+      <p class="note">Prezzi Pranzoalvolo letti nel carrello il 26 ottobre. Supermercato: circa 40 € a settimana (stima).</p>`;
     $('#spesa').innerHTML = h;
     $('#spesa').querySelectorAll('[data-sp]').forEach(c => c.onchange = () => { S.spesa[c.dataset.sp] = c.checked; c.closest('.chk').classList.toggle('on', c.checked); save(); });
     $('#sprst').onclick = () => { if (confirm('Togliere tutte le spunte?')) { S.spesa = {}; save(); renderSpesa(); } };
   }
+  // "✓ Pranzo mangiato" nella prima pagina
+  document.addEventListener('click', ev => {
+    if (!ev.target.closest('#mangiato')) return;
+    S.pranzoIdx = (S.pranzoIdx || 0) + 1; save(); toast('Pranzo segnato'); renderHome();
+  });
 
   /* ---------- GUIDA PASSO PASSO ---------- */
   function guideSheet(e) {
