@@ -440,6 +440,8 @@
     const t = todayISO(), rOggi = roleOn(t), dOggi = dayForRole(rOggi);
     const hasPlan = ['A', 'B', 'C'].every(r => dayForRole(r));
     let h = `<div class="bar"><h1>Allenamento</h1><button class="round" id="upd" aria-label="Aggiorna l'app">↻</button></div>`;
+    // l'app si e' spostata dentro il Diario (caltracker-sooty.vercel.app/allenamento/)
+    h += `<div class="riposo" style="border-color:#e8a25c"><b>📦 L'app si è spostata nel Diario</b><span>Ora allenamento, calorie e peso stanno insieme nell'app <b>Diario</b>, scheda <b>Palestra</b>. Per portarti dietro pesi e storico:<br>1) qui sotto tocca <b>💾 Backup → Salva un backup</b><br>2) apri il Diario → <b>Palestra</b> → <b>💾 Backup → Ripristina</b> e scegli il file.<br><a href="https://caltracker-sooty.vercel.app/allenamento/" style="color:#F5E6C8">Apri l'allenamento nel Diario ›</a></span></div>`;
     if (hasPlan) {
       h += `<p class="oggi">Oggi, ${GIORNI[dow(t)].toLowerCase()} ${dateOf(t).getDate()} ${dateOf(t).toLocaleDateString('it-IT', { month: 'long' })}</p>`;
       if (rOggi === 'D') {
