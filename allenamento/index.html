@@ -245,11 +245,11 @@
 <input type="file" id="cam" accept="image/*" class="hidden">
 <input type="file" id="impf" accept="application/json,.json" class="hidden">
 
-<script src="attrezzi.js?v=3.2"></script>
+<script src="attrezzi.js?v=3.3"></script>
 <script>
 (() => {
   const KEY = 'palestra.v1';
-  const APP_VER = '3.2';
+  const APP_VER = '3.3';
   const $ = s => document.querySelector(s);
   const uid = () => Math.random().toString(36).slice(2, 9);
   const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -260,16 +260,18 @@
   /* ---------- SCHEDA DI PARTENZA ---------- */
   // full body per rimettersi in forma e dimagrire: pesi 3 volte a settimana (A e B alternati), cardio nei giorni in mezzo.
   // role dice che posto ha il giorno nella settimana (A, B, C = solo cardio, D = domenica: camminata tranquilla). PLAN sale quando cambia la scheda consigliata.
-  const PLAN = 5;
+  const PLAN = 6;
   const ex = (name, sets, reps, weight, rest, att, unit) => ({ id: uid(), name, sets, reps, weight, rest, ...(att ? { att } : {}), ...(unit ? { unit } : {}) });
-  const CARDIO_DAY = () => ({ id: uid(), name: 'Solo cardio', role: 'C', exercises: [
-    ex('Tapis roulant in salita', 1, 20, 0, 0, 'tapis', 'min'),
-    ex('Cyclette', 1, 15, 0, 0, 'cyclette', 'min') ] });
+  // la cyclette non gli piace: cardio sul tapis roulant (+ un po' di ellittica per variare)
+  const CARDIO_EX = () => [
+    ex('Tapis roulant in salita', 1, 25, 0, 0, 'tapis', 'min'),
+    ex('Ellittica', 1, 10, 0, 0, 'ellittica', 'min') ];
+  const CARDIO_DAY = () => ({ id: uid(), name: 'Solo cardio', role: 'C', exercises: CARDIO_EX() });
   const EASY_DAY = () => ({ id: uid(), name: 'Camminata tranquilla', role: 'D', exercises: [
     ex('Camminata tranquilla', 1, 30, 0, 0, 'tapis', 'min') ] });
   // solo macchine (lo vuole lui: alla FirstFit ce ne sono tante, niente corpo libero o manubri)
   const A_EX = () => [
-    ex('Riscaldamento cyclette', 1, 8, 0, 0, 'cyclette', 'min'),
+    ex('Riscaldamento tapis roulant', 1, 8, 0, 0, 'tapis', 'min'),
     ex('Leg press', 3, 12, 0, 90, 'legpress'),
     ex('Chest press', 3, 12, 0, 90, 'chestpress'),
     ex('Lat machine', 3, 12, 0, 90, 'lat'),
@@ -326,6 +328,14 @@
     S.planVer = 4;
   }
   if (S.planVer < 5) { toMachines(); S.planVer = 5; }
+  // dalla 6: via la cyclette (non gli piace), tutto sul tapis roulant
+  if (S.planVer < 6) {
+    for (const d of S.days) {
+      if (d.role === 'C' && d.exercises.some(e => /cyclette/i.test(e.name))) d.exercises = CARDIO_EX();
+      else d.exercises = d.exercises.map(e => /^riscaldamento cyclette$/i.test(e.name) ? { ...e, name: 'Riscaldamento tapis roulant', att: 'tapis' } : e);
+    }
+    S.planVer = 6;
+  }
 
   /* ---------- SETTIMANA ---------- */
   // lun A, mer B, ven A; la settimana dopo B, A, B. Mar, gio, sab solo cardio; domenica camminata tranquilla.
