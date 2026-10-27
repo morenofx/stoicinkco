@@ -283,6 +283,7 @@
   };
   // per gli esercizi che sulla stessa macchina fanno un movimento diverso
   const GUIDE_EX = {
+    'alzate laterali al cavo': { hi: 'arm', m: 'Spalle', cue: 'Alza di lato fino alla spalla', p: ['Carrucola in basso. In piedi o seduto su una panca, fianco verso la macchina, maniglia nella mano lontana dal cavo.', 'Alza il braccio di lato, gomito appena piegato, fino all\'altezza della spalla.', 'Scendi piano in 2-3 secondi.', 'Non alzare la spalla verso l\'orecchio e non piegarti col busto.'] },
     'adductor': { hi: 'leg', m: 'Interno coscia', cue: 'Chiudi le gambe', p: ['Siediti, schiena appoggiata, cuscinetti all\'interno delle ginocchia, gambe poco aperte.', 'Chiudi le gambe stringendo i cuscinetti.', 'Riapri piano fino a un leggero allungamento.', 'Non partire con le gambe troppo aperte.'] },
     'camminata tranquilla': { hi: 'leg', m: 'Cuore e fiato', cue: 'Passo leggero', p: ['Aggancia la clip di sicurezza.', 'Pendenza 0-3%, velocità 4-5 km/h: una camminata tranquilla.', 'Devi poter parlare senza fiatone.', 'Non correre: oggi è recupero.'] }
   };

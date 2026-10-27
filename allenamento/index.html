@@ -245,11 +245,11 @@
 <input type="file" id="cam" accept="image/*" class="hidden">
 <input type="file" id="impf" accept="application/json,.json" class="hidden">
 
-<script src="attrezzi.js?v=3.3"></script>
+<script src="attrezzi.js?v=3.4"></script>
 <script>
 (() => {
   const KEY = 'palestra.v1';
-  const APP_VER = '3.3';
+  const APP_VER = '3.4';
   const $ = s => document.querySelector(s);
   const uid = () => Math.random().toString(36).slice(2, 9);
   const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -260,7 +260,7 @@
   /* ---------- SCHEDA DI PARTENZA ---------- */
   // full body per rimettersi in forma e dimagrire: pesi 3 volte a settimana (A e B alternati), cardio nei giorni in mezzo.
   // role dice che posto ha il giorno nella settimana (A, B, C = solo cardio, D = domenica: camminata tranquilla). PLAN sale quando cambia la scheda consigliata.
-  const PLAN = 6;
+  const PLAN = 7;
   const ex = (name, sets, reps, weight, rest, att, unit) => ({ id: uid(), name, sets, reps, weight, rest, ...(att ? { att } : {}), ...(unit ? { unit } : {}) });
   // la cyclette non gli piace: cardio sul tapis roulant (+ un po' di ellittica per variare)
   const CARDIO_EX = () => [
@@ -278,7 +278,8 @@
     ex('Leg curl', 3, 12, 0, 60, 'legcurl'),
     ex('Shoulder press', 2, 12, 0, 60, 'shoulder'),
     ex('Abductor', 2, 15, 0, 45, 'abductor'),
-    ex('Tapis roulant in salita', 1, 15, 0, 0, 'tapis', 'min') ];
+    ex('Calf in piedi', 2, 15, 0, 45, 'calf'),
+    ex('Tapis roulant in salita', 1, 10, 0, 0, 'tapis', 'min') ];
   const B_EX = () => [
     ex('Riscaldamento tapis roulant', 1, 8, 0, 0, 'tapis', 'min'),
     ex('Leg press', 3, 12, 0, 90, 'legpress'),
@@ -287,7 +288,8 @@
     ex('Leg extension', 2, 15, 0, 60, 'legext'),
     ex('Push down al cavo', 2, 12, 0, 60, 'cavoalto'),
     ex('Adductor', 2, 15, 0, 45, 'abductor'),
-    ex('Ellittica', 1, 15, 0, 0, 'ellittica', 'min') ];
+    ex('Alzate laterali al cavo', 2, 12, 0, 45, 'cavi'),
+    ex('Ellittica', 1, 10, 0, 0, 'ellittica', 'min') ];
   const PLAN_DAYS = () => [
     { id: uid(), name: 'Allenamento A', role: 'A', exercises: A_EX() },
     { id: uid(), name: 'Allenamento B', role: 'B', exercises: B_EX() },
@@ -335,6 +337,17 @@
       else d.exercises = d.exercises.map(e => /^riscaldamento cyclette$/i.test(e.name) ? { ...e, name: 'Riscaldamento tapis roulant', att: 'tapis' } : e);
     }
     S.planVer = 6;
+  }
+  // dalla 7: cardio finale di A e B a 10 minuti e un esercizio in piu' per non annoiarsi (calf in A, alzate al cavo in B)
+  if (S.planVer < 7) {
+    for (const [r, add] of [['A', () => ex('Calf in piedi', 2, 15, 0, 45, 'calf')], ['B', () => ex('Alzate laterali al cavo', 2, 12, 0, 45, 'cavi')]]) {
+      const d = S.days.find(x => x.role === r); if (!d || !d.exercises.length) continue;
+      const last = d.exercises[d.exercises.length - 1];
+      if (last.unit === 'min' && last.reps === 15) last.reps = 10;
+      const nuovo = add();
+      if (!d.exercises.some(e => e.name.toLowerCase() === nuovo.name.toLowerCase())) d.exercises.splice(last.unit === 'min' ? d.exercises.length - 1 : d.exercises.length, 0, nuovo);
+    }
+    S.planVer = 7;
   }
 
   /* ---------- SETTIMANA ---------- */

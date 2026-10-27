@@ -1,6 +1,6 @@
 // Service worker della palestra: tiene la pagina sul telefono per usarla offline.
 // A ogni modifica dei file cambia VER, cosi' il telefono scarica la versione nuova.
-const VER = 'allenamento-v16';
+const VER = 'allenamento-v17';
 const FILES = ['./', './index.html', './attrezzi.js', './manifest.json', './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
